@@ -10,6 +10,7 @@ import { VideoCard } from './VideoCard'
 import { VideoSlideOver } from './VideoSlideOver'
 import { ReviewConfirmDialog } from './ReviewConfirmDialog'
 import { PublishChecklistDialog } from './PublishChecklistDialog'
+import { ScriptingReviewChecklistDialog } from './ScriptingReviewChecklistDialog'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import type { Video, VideoStatus, Tag } from '@/types'
@@ -148,6 +149,7 @@ export function Kanban() {
     targetStatus: VideoStatus
     videoTitle: string
   } | null>(null)
+  const [pendingScriptingReview, setPendingScriptingReview] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [pendingPublish, setPendingPublish] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [newForm, setNewForm] = useState({ title: '', description: '' })
 
@@ -173,6 +175,10 @@ export function Kanban() {
     const videoId = active.id as string
     const targetStatus = over.id as VideoStatus
     const video = videos.find(v => v.id === videoId)
+    if (video?.status === 'scripting' && targetStatus === 'review') {
+      setPendingScriptingReview({ videoId, videoTitle: video.title })
+      return
+    }
     if (video?.status === 'review' && targetStatus === 'filming') {
       setPendingMove({ videoId, targetStatus, videoTitle: video.title })
       return
@@ -291,6 +297,16 @@ export function Kanban() {
       </DndContext>
 
       <VideoSlideOver video={slideOver} onClose={() => setSlideOver(null)} />
+
+      <ScriptingReviewChecklistDialog
+        open={pendingScriptingReview !== null}
+        videoTitle={pendingScriptingReview?.videoTitle ?? ''}
+        onConfirm={() => {
+          if (pendingScriptingReview) moveVideo(pendingScriptingReview.videoId, 'review')
+          setPendingScriptingReview(null)
+        }}
+        onCancel={() => setPendingScriptingReview(null)}
+      />
 
       <ReviewConfirmDialog
         open={pendingMove !== null}

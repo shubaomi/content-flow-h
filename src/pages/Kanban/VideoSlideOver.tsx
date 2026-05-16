@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ReviewConfirmDialog } from './ReviewConfirmDialog'
 import { PublishChecklistDialog } from './PublishChecklistDialog'
+import { ScriptingReviewChecklistDialog } from './ScriptingReviewChecklistDialog'
 import { useNavigate } from 'react-router-dom'
 import type { Video } from '@/types'
 import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS, VIOLATION_CATEGORY_LABELS } from '@/types'
@@ -29,6 +30,7 @@ export function VideoSlideOver({ video, onClose }: Props) {
   }, [onClose])
 
   const [showReviewConfirm, setShowReviewConfirm] = useState(false)
+  const [showScriptingReviewChecklist, setShowScriptingReviewChecklist] = useState(false)
   const [showPublishChecklist, setShowPublishChecklist] = useState(false)
 
   if (!video) return null
@@ -191,6 +193,10 @@ export function VideoSlideOver({ video, onClose }: Props) {
           {nextStatus && (
             <button
               onClick={() => {
+                if (video.status === 'scripting' && nextStatus === 'review') {
+                  setShowScriptingReviewChecklist(true)
+                  return
+                }
                 if (video.status === 'review' && nextStatus === 'filming') {
                   setShowReviewConfirm(true)
                   return
@@ -227,6 +233,17 @@ export function VideoSlideOver({ video, onClose }: Props) {
           </button>
         </div>
       </div>
+      <ScriptingReviewChecklistDialog
+        open={showScriptingReviewChecklist}
+        videoTitle={video.title}
+        onConfirm={() => {
+          moveVideo(video.id, 'review')
+          setShowScriptingReviewChecklist(false)
+          onClose()
+        }}
+        onCancel={() => setShowScriptingReviewChecklist(false)}
+      />
+
       <ReviewConfirmDialog
         open={showReviewConfirm}
         videoTitle={video.title}
