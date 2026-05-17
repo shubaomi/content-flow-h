@@ -1,12 +1,17 @@
-import { nanoid } from 'nanoid'
-import type { AppData, Video, Topic, Script, Tag } from '@/types'
-import { now } from '@/utils/date'
+import type { AppData, Video, Topic, Script, Tag, ChecklistItem } from '@/types'
 
 const d = (daysAgo: number) => {
   const dt = new Date()
   dt.setDate(dt.getDate() - daysAgo)
   return dt.toISOString()
 }
+
+const CHECKLIST_ITEMS: ChecklistItem[] = [
+  { id: 'chk_ai_label',            text: 'AI 生成内容已标注',        createdAt: d(30) },
+  { id: 'chk_no_violation',        text: '抖音视频检测无违规提示',    createdAt: d(30) },
+  { id: 'chk_original',            text: '已标注原创',                createdAt: d(30) },
+  { id: 'chk_no_third_party_url',  text: '无第三方商业性质网址露出',  createdAt: d(30) },
+]
 
 const TAGS: Tag[] = [
   { id: 'tag_career', name: '职场干货', color: '#7C3AED', createdAt: d(30) },
@@ -32,10 +37,11 @@ const VIDEOS: Video[] = [
       { status: 'published', changedAt: d(5) },
     ],
     platforms: [
-      { platform: 'douyin', publishedAt: d(5), url: 'https://www.douyin.com/video/demo' },
-      { platform: 'xiaohongshu', publishedAt: d(5) },
-      { platform: 'shipinhao', publishedAt: d(4) },
+      { platform: 'douyin', status: 'published', publishedAt: d(5), url: 'https://www.douyin.com/video/demo', promotionCost: 500 },
+      { platform: 'xiaohongshu', status: 'published', publishedAt: d(5), promotionCost: 200 },
+      { platform: 'shipinhao', status: 'published', publishedAt: d(4) },
     ],
+    shootingFormats: ['landscape', 'talking'],
     description: '分享3个真实的普通人财务自由案例，总结可复制的路径。',
     duration: 480,
     createdAt: d(20),
@@ -63,6 +69,7 @@ const VIDEOS: Video[] = [
     title: '年薪50万的人，都有这些共同点',
     status: 'filming',
     tagIds: ['tag_career'],
+    topicId: 'topic_demo03',
     statusHistory: [
       { status: 'topic', changedAt: d(8) },
       { status: 'scripting', changedAt: d(6) },
@@ -70,6 +77,7 @@ const VIDEOS: Video[] = [
       { status: 'filming', changedAt: d(2) },
     ],
     platforms: [],
+    shootingFormats: ['portrait', 'talking_demo'],
     createdAt: d(8),
     updatedAt: d(2),
   },
@@ -105,16 +113,8 @@ const TOPICS: Topic[] = [
     id: 'topic_demo01',
     title: '30岁转行的正确姿势',
     description: '分析转行成功的关键要素，用真实数据说话',
-    status: 'approved',
+    status: 'inspiration',
     tagIds: ['tag_career'],
-    score: {
-      searchVolume: 8,
-      competition: 5,
-      uniqueness: 7,
-      monetization: 9,
-      personal: 8,
-      total: 7.9,
-    },
     createdAt: d(10),
     updatedAt: d(8),
   },
@@ -122,7 +122,7 @@ const TOPICS: Topic[] = [
     id: 'topic_demo02',
     title: '独居生活必备的10个习惯',
     description: '从心理到物质，全面的独居生活指南',
-    status: 'idea',
+    status: 'inspiration',
     tagIds: ['tag_life'],
     createdAt: d(7),
     updatedAt: d(7),
@@ -133,14 +133,6 @@ const TOPICS: Topic[] = [
     description: '横向对比不同副业模式，帮观众选择适合自己的方向',
     status: 'in_progress',
     tagIds: ['tag_career', 'tag_tips'],
-    score: {
-      searchVolume: 9,
-      competition: 7,
-      uniqueness: 6,
-      monetization: 10,
-      personal: 7,
-      total: 7.3,
-    },
     linkedVideoId: 'vid_demo03',
     createdAt: d(15),
     updatedAt: d(3),
@@ -176,6 +168,7 @@ export function defaultAppData(): AppData {
   return {
     version: '1.0',
     tags: TAGS,
+    checklistItems: CHECKLIST_ITEMS,
     videos: VIDEOS,
     topics: TOPICS,
     scripts: SCRIPTS,
