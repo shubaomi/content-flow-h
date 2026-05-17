@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor,
-  useSensor, useSensors, type DragEndEvent, type DragStartEvent,
+  useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
@@ -11,6 +11,7 @@ import { VideoSlideOver } from './VideoSlideOver'
 import { ReviewConfirmDialog } from './ReviewConfirmDialog'
 import { PublishChecklistDialog } from './PublishChecklistDialog'
 import { ScriptingReviewChecklistDialog } from './ScriptingReviewChecklistDialog'
+import { FilmingEditingChecklistDialog } from './FilmingEditingChecklistDialog'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import type { Video, VideoStatus, Tag } from '@/types'
@@ -29,15 +30,16 @@ const STATUS_DOT: Record<VideoStatus, string> = {
 }
 
 function KanbanColumn({
-  status, videos, tags, onCardClick, onAddClick,
+  status, videos, tags, onCardClick, onAddClick, isDragOver,
 }: {
   status: VideoStatus
   videos: Video[]
   tags: Tag[]
   onCardClick: (v: Video) => void
   onAddClick: (s: VideoStatus) => void
+  isDragOver: boolean
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status })
+  const { setNodeRef } = useDroppable({ id: status })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: 280, flexShrink: 0 }}>
@@ -95,8 +97,8 @@ function KanbanColumn({
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
-          background: isOver ? 'var(--accent-light)' : 'var(--bg-surface)',
-          border: `1px solid ${isOver ? 'var(--accent)' : 'var(--border-subtle)'}`,
+          background: isDragOver ? 'var(--accent-light)' : 'var(--bg-surface)',
+          border: `1px solid ${isDragOver ? 'var(--accent)' : 'var(--border-subtle)'}`,
           transition: 'all .15s',
         }}
       >
@@ -140,6 +142,7 @@ export function Kanban() {
   const addVideo = useAppStore(s => s.addVideo)
 
   const [activeVideo, setActiveVideo] = useState<Video | null>(null)
+  const [overColumnId, setOverColumnId] = useState<VideoStatus | null>(null)
   const [slideOver, setSlideOver] = useState<Video | null>(null)
   const [filterTagId, setFilterTagId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
@@ -151,6 +154,7 @@ export function Kanban() {
   } | null>(null)
   const [pendingScriptingReview, setPendingScriptingReview] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [pendingPublish, setPendingPublish] = useState<{ videoId: string; videoTitle: string } | null>(null)
+  const [pendingFilmingEditing, setPendingFilmingEditing] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [newForm, setNewForm] = useState({ title: '', description: '' })
 
   const sensors = useSensors(
@@ -169,22 +173,48 @@ export function Kanban() {
     return cols
   }, [filtered])
 
+  const onDragOver = ({ over }: DragOverEvent) => {
+    if (!over) { setOverColumnId(null); return }
+    if (VIDEO_STATUS_ORDER.includes(over.id as VideoStatus)) {
+      setOverColumnId(over.id as VideoStatus)
+    } else {
+      const overVideo = videos.find(v => v.id === over.id)
+      setOverColumnId(overVideo?.status ?? null)
+    }
+  }
+
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveVideo(null)
-    if (!over || !VIDEO_STATUS_ORDER.includes(over.id as VideoStatus)) return
+    setOverColumnId(null)
+    if (!over) return
+
+    let targetStatus: VideoStatus
+    if (VIDEO_STATUS_ORDER.includes(over.id as VideoStatus)) {
+      targetStatus = over.id as VideoStatus
+    } else {
+      const overVideo = videos.find(v => v.id === over.id)
+      if (!overVideo) return
+      targetStatus = overVideo.status
+    }
+
     const videoId = active.id as string
-    const targetStatus = over.id as VideoStatus
     const video = videos.find(v => v.id === videoId)
-    if (video?.status === 'scripting' && targetStatus === 'review') {
+    if (!video || video.status === targetStatus) return
+
+    if (video.status === 'scripting' && targetStatus === 'review') {
       setPendingScriptingReview({ videoId, videoTitle: video.title })
       return
     }
-    if (video?.status === 'review' && targetStatus === 'filming') {
+    if (video.status === 'review' && targetStatus === 'filming') {
       setPendingMove({ videoId, targetStatus, videoTitle: video.title })
       return
     }
+    if (video.status === 'filming' && targetStatus === 'editing') {
+      setPendingFilmingEditing({ videoId, videoTitle: video.title })
+      return
+    }
     if (targetStatus === 'published') {
-      setPendingPublish({ videoId, videoTitle: video?.title ?? '' })
+      setPendingPublish({ videoId, videoTitle: video.title })
       return
     }
     moveVideo(videoId, targetStatus)
@@ -269,6 +299,7 @@ export function Kanban() {
       <DndContext
         sensors={sensors}
         onDragStart={({ active }: DragStartEvent) => setActiveVideo(videos.find(v => v.id === active.id) ?? null)}
+        onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
         <div style={{
@@ -285,6 +316,7 @@ export function Kanban() {
               tags={tags}
               onCardClick={setSlideOver}
               onAddClick={s => setAddModal({ open: true, status: s })}
+              isDragOver={overColumnId === status}
             />
           ))}
         </div>
@@ -326,6 +358,16 @@ export function Kanban() {
           setPendingPublish(null)
         }}
         onCancel={() => setPendingPublish(null)}
+      />
+
+      <FilmingEditingChecklistDialog
+        open={pendingFilmingEditing !== null}
+        videoTitle={pendingFilmingEditing?.videoTitle ?? ''}
+        onConfirm={() => {
+          if (pendingFilmingEditing) moveVideo(pendingFilmingEditing.videoId, 'editing')
+          setPendingFilmingEditing(null)
+        }}
+        onCancel={() => setPendingFilmingEditing(null)}
       />
 
       <Modal

@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { ReviewConfirmDialog } from './ReviewConfirmDialog'
 import { PublishChecklistDialog } from './PublishChecklistDialog'
 import { ScriptingReviewChecklistDialog } from './ScriptingReviewChecklistDialog'
+import { FilmingEditingChecklistDialog } from './FilmingEditingChecklistDialog'
 import { useNavigate } from 'react-router-dom'
 import type { Video } from '@/types'
-import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS, VIOLATION_CATEGORY_LABELS } from '@/types'
+import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS, VIOLATION_CATEGORY_LABELS, SHOOTING_FORMAT_LABELS } from '@/types'
 import { useAppStore } from '@/store/appStore'
 import { StatusBadge } from '@/components/StatusBadge'
 import { PlatformIcon } from '@/components/PlatformIcon'
-import { formatDate, fromNow } from '@/utils/date'
+import { fromNow } from '@/utils/date'
 
 interface Props { video: Video | null; onClose: () => void }
 
@@ -32,6 +33,7 @@ export function VideoSlideOver({ video, onClose }: Props) {
   const [showReviewConfirm, setShowReviewConfirm] = useState(false)
   const [showScriptingReviewChecklist, setShowScriptingReviewChecklist] = useState(false)
   const [showPublishChecklist, setShowPublishChecklist] = useState(false)
+  const [showFilmingEditingChecklist, setShowFilmingEditingChecklist] = useState(false)
 
   if (!video) return null
 
@@ -89,13 +91,26 @@ export function VideoSlideOver({ video, onClose }: Props) {
           </h2>
 
           {videoTags.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
               {videoTags.map(tag => (
                 <span key={tag.id} style={{
                   padding: '2px 9px', borderRadius: 99,
                   fontSize: 11, fontWeight: 500,
                   background: tag.color + '25', color: tag.color,
                 }}>{tag.name}</span>
+              ))}
+            </div>
+          )}
+
+          {(video.shootingFormats ?? []).length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 16 }}>
+              {(video.shootingFormats ?? []).map(fmt => (
+                <span key={fmt} style={{
+                  padding: '2px 9px', borderRadius: 99,
+                  fontSize: 11, fontWeight: 500,
+                  background: 'var(--accent-alpha)', color: 'var(--accent)',
+                  border: '1px solid var(--accent)',
+                }}>{SHOOTING_FORMAT_LABELS[fmt]}</span>
               ))}
             </div>
           )}
@@ -201,6 +216,10 @@ export function VideoSlideOver({ video, onClose }: Props) {
                   setShowReviewConfirm(true)
                   return
                 }
+                if (video.status === 'filming' && nextStatus === 'editing') {
+                  setShowFilmingEditingChecklist(true)
+                  return
+                }
                 if (nextStatus === 'published') {
                   setShowPublishChecklist(true)
                   return
@@ -264,6 +283,17 @@ export function VideoSlideOver({ video, onClose }: Props) {
           onClose()
         }}
         onCancel={() => setShowPublishChecklist(false)}
+      />
+
+      <FilmingEditingChecklistDialog
+        open={showFilmingEditingChecklist}
+        videoTitle={video.title}
+        onConfirm={() => {
+          moveVideo(video.id, 'editing')
+          setShowFilmingEditingChecklist(false)
+          onClose()
+        }}
+        onCancel={() => setShowFilmingEditingChecklist(false)}
       />
     </>
   )
