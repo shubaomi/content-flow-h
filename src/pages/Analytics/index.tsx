@@ -7,54 +7,45 @@ import { useAppStore } from '@/store/appStore'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { formatNumber, calcEngagement } from '@/utils/format'
-import type { Platform } from '@/types'
+import { formatNumber } from '@/utils/format'
 import { PLATFORM_LABELS } from '@/types'
+import { enrichMetrics, calcOverviewStats } from './viralUtils'
+import { OverviewCards } from './OverviewCards'
+import { TabViralRadar } from './TabViralRadar'
+import { TabPlatformInsight } from './TabPlatformInsight'
+import { TabPatternFinder } from './TabPatternFinder'
 
-type TabId = 'trends' | 'top' | 'platforms'
+type TabId = 'trends' | 'platforms' | 'viral-radar' | 'platform-insight' | 'pattern'
+
+const tabs: { id: TabId; label: string }[] = [
+  { id: 'trends',           label: '趋势分析' },
+  { id: 'platforms',        label: '平台对比' },
+  { id: 'viral-radar',      label: '爆款雷达' },
+  { id: 'platform-insight', label: '平台洞察' },
+  { id: 'pattern',          label: '规律发现' },
+]
 
 export function Analytics() {
   const videos = useAppStore(s => s.data?.videos ?? [])
   const metrics = useAppStore(s => s.data?.metrics ?? [])
+  const tags = useAppStore(s => s.data?.tags ?? [])
   const [tab, setTab] = useState<TabId>('trends')
 
-  const enriched = useMemo(() => metrics.map(m => {
-    const video = videos.find(v => v.id === m.videoId)
-    return {
-      ...m,
-      videoTitle: video?.title ?? '未知视频',
-      engagement: calcEngagement(m.likes, m.comments, m.shares, m.plays),
-    }
-  }), [metrics, videos])
+  const enriched = useMemo(() => enrichMetrics(metrics, videos), [metrics, videos])
+  const overviewStats = useMemo(() => calcOverviewStats(enriched, videos), [enriched, videos])
 
-  const topVideos = useMemo(() => {
-    const byVideo: Record<string, { title: string; maxEngagement: number; totalPlays: number; platform: Platform }> = {}
-    enriched.forEach(m => {
-      if (!byVideo[m.videoId] || m.engagement > byVideo[m.videoId].maxEngagement) {
-        byVideo[m.videoId] = {
-          title: m.videoTitle,
-          maxEngagement: m.engagement,
-          totalPlays: m.plays,
-          platform: m.platform,
-        }
-      }
-    })
-    return Object.entries(byVideo)
-      .sort((a, b) => b[1].maxEngagement - a[1].maxEngagement)
-      .slice(0, 10)
-  }, [enriched])
-
+  // 趋势分析数据
   const trendData = useMemo(() => {
-    const byDate: Record<string, { date: string; plays: number; count: number }> = {}
+    const byDate: Record<string, { date: string; plays: number }> = {}
     enriched.forEach(m => {
       const d = m.dataDate.slice(0, 10)
-      if (!byDate[d]) byDate[d] = { date: d, plays: 0, count: 0 }
+      if (!byDate[d]) byDate[d] = { date: d, plays: 0 }
       byDate[d].plays += m.plays
-      byDate[d].count++
     })
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date)).slice(-30)
   }, [enriched])
 
+  // 平台对比数据
   const platformData = useMemo(() => {
     const byPlatform: Record<string, { platform: string; avgEngagement: number; totalPlays: number; count: number }> = {}
     enriched.forEach(m => {
@@ -62,7 +53,7 @@ export function Analytics() {
         byPlatform[m.platform] = { platform: PLATFORM_LABELS[m.platform], avgEngagement: 0, totalPlays: 0, count: 0 }
       }
       byPlatform[m.platform].totalPlays += m.plays
-      byPlatform[m.platform].avgEngagement += m.engagement
+      byPlatform[m.platform].avgEngagement += m.platformEngagement * 100
       byPlatform[m.platform].count++
     })
     return Object.values(byPlatform).map(p => ({
@@ -71,17 +62,26 @@ export function Analytics() {
     }))
   }, [enriched])
 
-  const totalPlays = enriched.reduce((sum, m) => sum + m.plays, 0)
-  const avgEngagement = enriched.length > 0
-    ? (enriched.reduce((sum, m) => sum + m.engagement, 0) / enriched.length).toFixed(2)
-    : '0'
-  const publishedCount = videos.filter(v => v.status === 'published').length
+  const totalPromotionCost = useMemo(() =>
+    videos.reduce((sum, v) =>
+      sum + v.platforms.reduce((s, p) => s + (p.promotionCost ?? 0), 0), 0)
+  , [videos])
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'trends', label: '趋势分析' },
-    { id: 'platforms', label: '平台对比' },
-    { id: 'top', label: '爆款分析' },
-  ]
+  const platformCostData = useMemo(() => {
+    const byPlatform: Record<string, { label: string; cost: number }> = {
+      douyin:      { label: PLATFORM_LABELS['douyin'],      cost: 0 },
+      xiaohongshu: { label: PLATFORM_LABELS['xiaohongshu'], cost: 0 },
+      shipinhao:   { label: PLATFORM_LABELS['shipinhao'],   cost: 0 },
+    }
+    videos.forEach(v => {
+      v.platforms.forEach(p => {
+        if (p.promotionCost) byPlatform[p.platform].cost += p.promotionCost
+      })
+    })
+    return Object.entries(byPlatform)
+      .filter(([, d]) => d.cost > 0)
+      .map(([platform, d]) => ({ platform, ...d }))
+  }, [videos])
 
   const tooltipStyle = {
     background: 'var(--bg-overlay)',
@@ -91,24 +91,10 @@ export function Analytics() {
     fontSize: '12px',
   }
 
-  const rankColors = ['#FBBF24', '#9CA3AF', '#F97316']
-
   return (
     <PageContainer title="数据分析" subtitle={`${metrics.length} 条数据记录`}>
-      {/* Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-        {[
-          { label: '累计播放量', value: formatNumber(totalPlays), sub: `${publishedCount} 条已发布视频` },
-          { label: '平均互动率', value: `${avgEngagement}%`, sub: '(点赞+评论+分享)/播放' },
-          { label: '数据记录数', value: metrics.length.toString(), sub: '手动录入的数据条目' },
-        ].map(stat => (
-          <div key={stat.label} style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 16 }}>
-            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{stat.label}</p>
-            <p style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{stat.value}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>{stat.sub}</p>
-          </div>
-        ))}
-      </div>
+      {/* 概览 KPI 卡片 */}
+      <OverviewCards stats={overviewStats} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--border-subtle)' }}>
@@ -140,25 +126,23 @@ export function Analytics() {
       ) : (
         <>
           {tab === 'trends' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 20 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>播放量趋势（近30天）</p>
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} tickFormatter={d => d.slice(5)} />
-                    <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} tickFormatter={formatNumber} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown) => [formatNumber(Number(v)), '播放量']} />
-                    <Line type="monotone" dataKey="plays" stroke="#7C3AED" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+            <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 20 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>播放量趋势（近30天）</p>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} tickFormatter={d => d.slice(5)} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} tickFormatter={formatNumber} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown) => [formatNumber(Number(v)), '播放量']} />
+                  <Line type="monotone" dataKey="plays" stroke="#7C3AED" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           )}
 
           {tab === 'platforms' && (
             <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 20 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>各平台互动率对比</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>各平台互动率对比（平台差异化算法）</p>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={platformData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
@@ -169,7 +153,7 @@ export function Analytics() {
                 </BarChart>
               </ResponsiveContainer>
               <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {platformData.sort((a, b) => b.totalPlays - a.totalPlays).map(p => (
+                {[...platformData].sort((a, b) => b.totalPlays - a.totalPlays).map(p => (
                   <div key={p.platform} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ color: 'var(--text-secondary)' }}>{p.platform}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: 'var(--text-tertiary)' }}>
@@ -179,44 +163,34 @@ export function Analytics() {
                   </div>
                 ))}
               </div>
+              {platformCostData.length > 0 && (
+                <div style={{ marginTop: 20, borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 10 }}>投放成本</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {platformCostData.map(p => (
+                      <div key={p.platform} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>{p.label}</span>
+                        <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>¥{p.cost.toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {platformCostData.length > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, borderTop: '1px solid var(--border-subtle)', paddingTop: 8, marginTop: 2 }}>
+                        <span style={{ color: 'var(--text-tertiary)' }}>合计</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>¥{totalPromotionCost.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {tab === 'top' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>按最高互动率排序，共 {topVideos.length} 条视频有数据</p>
-              {topVideos.map(([id, v], idx) => (
-                <div
-                  key={id}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 16,
-                    borderRadius: 12, border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-surface)', padding: 16,
-                    transition: 'border-color .12s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}
-                >
-                  <span style={{ fontSize: 16, fontWeight: 700, width: 28, textAlign: 'center', flexShrink: 0, color: rankColors[idx] ?? 'var(--text-tertiary)' }}>
-                    #{idx + 1}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 2, fontSize: 12, color: 'var(--text-tertiary)' }}>
-                      <span>{PLATFORM_LABELS[v.platform]}</span>
-                      <span>播放 {formatNumber(v.totalPlays)}</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <p style={{ fontSize: 18, fontWeight: 700, color: '#34D399' }}>{v.maxEngagement}%</p>
-                    <p style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>互动率</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {tab === 'viral-radar' && <TabViralRadar enriched={enriched} />}
+          {tab === 'platform-insight' && <TabPlatformInsight enriched={enriched} />}
+          {tab === 'pattern' && <TabPatternFinder enriched={enriched} videos={videos} tags={tags} />}
         </>
       )}
+
     </PageContainer>
   )
 }

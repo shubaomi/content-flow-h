@@ -24,16 +24,18 @@ export const VideoCard = memo(function VideoCard({ video, tags, onClick, isDragO
 
   const style: React.CSSProperties = {
     transform: isDragOverlay
-      ? `${CSS.Transform.toString(transform)} rotate(2deg)`
+      ? `${CSS.Transform.toString(transform)} rotate(1.5deg) scale(1.03)`
       : CSS.Transform.toString(transform) ?? undefined,
-    transition,
-    background: 'var(--bg-elevated)',
-    border: `1px solid ${isDragging ? 'var(--accent)' : 'var(--border-subtle)'}`,
+    transition: isDragOverlay ? undefined : transition,
+    background: isDragging ? 'var(--bg-surface)' : 'var(--bg-elevated)',
+    border: `1.5px ${isDragging ? 'dashed' : 'solid'} ${isDragging ? 'var(--accent)' : 'var(--border-subtle)'}`,
     borderRadius: 10,
     padding: '12px 14px',
-    cursor: isDragOverlay ? 'grabbing' : 'pointer',
-    opacity: isDragging ? 0.4 : 1,
-    boxShadow: isDragOverlay ? 'var(--shadow-lg)' : 'none',
+    cursor: isDragOverlay ? 'grabbing' : 'grab',
+    opacity: isDragging ? 0.45 : 1,
+    boxShadow: isDragOverlay
+      ? '0 16px 40px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.12)'
+      : 'none',
     userSelect: 'none',
   }
 
@@ -45,10 +47,18 @@ export const VideoCard = memo(function VideoCard({ video, tags, onClick, isDragO
       {...listeners}
       onClick={() => !isDragging && onClick(video)}
       onMouseEnter={e => {
-        if (!isDragging) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'
+        if (!isDragging && !isDragOverlay) {
+          const el = e.currentTarget as HTMLElement
+          el.style.borderColor = 'var(--border-default)'
+          el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
+        }
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'
+        if (!isDragOverlay) {
+          const el = e.currentTarget as HTMLElement
+          el.style.borderColor = 'var(--border-subtle)'
+          el.style.boxShadow = 'none'
+        }
       }}
     >
       {/* Tags */}

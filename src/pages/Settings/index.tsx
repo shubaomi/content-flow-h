@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { clearStoredHandle, pickDirectory } from '@/services/fileSystem'
-import type { Tag } from '@/types'
+import type { Tag, ChecklistItem } from '@/types'
 
 export function Settings() {
   const data = useAppStore(s => s.data)
@@ -18,12 +18,32 @@ export function Settings() {
   const deleteTag = useAppStore(s => s.deleteTag)
   const loadData = useAppStore(s => s.loadData)
 
+  const checklistItems = data?.checklistItems ?? []
+  const addChecklistItem = useAppStore(s => s.addChecklistItem)
+  const updateChecklistItem = useAppStore(s => s.updateChecklistItem)
+  const deleteChecklistItem = useAppStore(s => s.deleteChecklistItem)
+
   const [tagModal, setTagModal] = useState<{ mode: 'new' | 'edit'; tag?: Tag } | null>(null)
   const [tagForm, setTagForm] = useState({ name: '', color: '#7C3AED' })
+  const [checklistModal, setChecklistModal] = useState<{ mode: 'new' | 'edit'; item?: ChecklistItem } | null>(null)
+  const [checklistText, setChecklistText] = useState('')
   const [reconnecting, setReconnecting] = useState(false)
 
   const openNewTag = () => { setTagForm({ name: '', color: '#7C3AED' }); setTagModal({ mode: 'new' }) }
   const openEditTag = (tag: Tag) => { setTagForm({ name: tag.name, color: tag.color }); setTagModal({ mode: 'edit', tag }) }
+
+  const openNewChecklist = () => { setChecklistText(''); setChecklistModal({ mode: 'new' }) }
+  const openEditChecklist = (item: ChecklistItem) => { setChecklistText(item.text); setChecklistModal({ mode: 'edit', item }) }
+
+  const handleSaveChecklist = () => {
+    if (!checklistText.trim()) return
+    if (checklistModal?.mode === 'new') {
+      addChecklistItem(checklistText.trim())
+    } else if (checklistModal?.item) {
+      updateChecklistItem(checklistModal.item.id, checklistText.trim())
+    }
+    setChecklistModal(null)
+  }
 
   const handleSaveTag = () => {
     if (!tagForm.name.trim()) return
@@ -153,6 +173,64 @@ export function Settings() {
           </div>
         </section>
 
+        {/* Checklist Items */}
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            {sectionTitle('发布前检查项')}
+            <Button variant="secondary" size="sm" onClick={openNewChecklist}>+ 新建检查项</Button>
+          </div>
+          <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+            {checklistItems.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>暂无检查项</div>
+            ) : (
+              checklistItems.map((item, i) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 16px',
+                    borderBottom: i < checklistItems.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                    background: 'var(--bg-surface)',
+                    transition: 'background .1s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)',
+                    }}>
+                      {i + 1}
+                    </div>
+                    <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{item.text}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
+                      onClick={() => openEditChecklist(item)}
+                      style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
+                    >
+                      编辑
+                    </button>
+                    <button
+                      onClick={() => deleteChecklistItem(item.id)}
+                      style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#F87171'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
         {/* Data management */}
         <section>
           {sectionTitle('数据管理')}
@@ -256,6 +334,27 @@ export function Settings() {
             </div>
           </div>
         </div>
+      </Modal>
+      {/* Checklist modal */}
+      <Modal
+        open={!!checklistModal}
+        onClose={() => setChecklistModal(null)}
+        title={checklistModal?.mode === 'new' ? '新建检查项' : '编辑检查项'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setChecklistModal(null)}>取消</Button>
+            <Button variant="primary" onClick={handleSaveChecklist} disabled={!checklistText.trim()}>保存</Button>
+          </>
+        }
+      >
+        <Input
+          label="检查项内容"
+          value={checklistText}
+          onChange={e => setChecklistText(e.target.value)}
+          autoFocus
+          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveChecklist() }}
+        />
       </Modal>
     </PageContainer>
   )

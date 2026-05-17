@@ -13,6 +13,7 @@ import {
   VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, ALL_PLATFORMS, PLATFORM_LABELS,
   PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS,
   VIOLATION_CATEGORY_LABELS,
+  ALL_SHOOTING_FORMATS, SHOOTING_FORMAT_LABELS,
 } from '@/types'
 import { formatDate, fromNow } from '@/utils/date'
 import { calcEngagement, formatNumber } from '@/utils/format'
@@ -29,6 +30,7 @@ export function VideoDetail() {
   const deleteVideo = useAppStore(s => s.deleteVideo)
   const addMetric = useAppStore(s => s.addMetric)
   const setPlatformEntry = useAppStore(s => s.setPlatformEntry)
+  const updatePromotionCost = useAppStore(s => s.updatePromotionCost)
 
   const video = videos.find(v => v.id === id)
   const script = scripts.find(s => s.id === video?.scriptId)
@@ -65,6 +67,8 @@ export function VideoDetail() {
     setMetricForm(fillFromLastMetric('douyin'))
     setMetricModal(true)
   }
+
+  const [costDraft, setCostDraft] = useState<Partial<Record<Platform, string>>>({})
 
   // Platform modals
   const [skipModal, setSkipModal] = useState<Platform | null>(null)
@@ -287,6 +291,36 @@ export function VideoDetail() {
                 })}
               </div>
             </div>
+
+            <div>
+              <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.07em' }}>拍摄形式</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {ALL_SHOOTING_FORMATS.map(fmt => {
+                  const selected = (video.shootingFormats ?? []).includes(fmt)
+                  return (
+                    <button
+                      key={fmt}
+                      onClick={() => {
+                        const prev = video.shootingFormats ?? []
+                        const next = selected
+                          ? prev.filter(f => f !== fmt)
+                          : [...prev, fmt]
+                        updateVideo(video.id, { shootingFormats: next })
+                      }}
+                      style={{
+                        padding: '4px 10px', borderRadius: 99, fontSize: 12, fontWeight: 500,
+                        border: `1px solid ${selected ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                        background: selected ? 'var(--accent-alpha)' : 'transparent',
+                        color: selected ? 'var(--accent)' : 'var(--text-tertiary)',
+                        cursor: 'pointer', transition: 'all .1s',
+                      }}
+                    >
+                      {SHOOTING_FORMAT_LABELS[fmt]}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Right col */}
@@ -358,9 +392,39 @@ export function VideoDetail() {
 
                       {/* Detail row */}
                       {pub && status === 'published' && pub.publishedAt && (
-                        <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                          {formatDate(pub.publishedAt)}
-                        </p>
+                        <div style={{ marginTop: 4 }}>
+                          <p style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                            {formatDate(pub.publishedAt)}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 }}>¥</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="投放费用（选填）"
+                              value={costDraft[platform] ?? (pub.promotionCost != null ? String(pub.promotionCost) : '')}
+                              onChange={e => setCostDraft(d => ({ ...d, [platform]: e.target.value }))}
+                              onBlur={() => {
+                                const raw = costDraft[platform]
+                                if (raw === undefined) return
+                                const parsed = parseFloat(raw)
+                                updatePromotionCost(video.id, platform, isNaN(parsed) || parsed <= 0 ? undefined : parsed)
+                                setCostDraft(d => { const n = { ...d }; delete n[platform]; return n })
+                              }}
+                              style={{
+                                width: 130, height: 24, padding: '0 8px', borderRadius: 6, fontSize: 11,
+                                border: '1px solid var(--border-subtle)', background: 'var(--bg-base)',
+                                color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
+                              }}
+                              onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+                              onBlurCapture={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+                            />
+                            {pub.promotionCost != null && pub.promotionCost > 0 && costDraft[platform] === undefined && (
+                              <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>已记录</span>
+                            )}
+                          </div>
+                        </div>
                       )}
                       {pub && status === 'violated' && pub.violation && (
                         <p style={{ fontSize: 11, color: '#EF4444', marginTop: 4, lineHeight: 1.5 }}>
@@ -468,7 +532,7 @@ export function VideoDetail() {
           <Input label="点赞数" type="number" placeholder="0" value={metricForm.likes} onChange={e => setMetricForm(f => ({ ...f, likes: e.target.value }))} />
           <Input label="评论数" type="number" placeholder="0" value={metricForm.comments} onChange={e => setMetricForm(f => ({ ...f, comments: e.target.value }))} />
           <Input label="分享数" type="number" placeholder="0" value={metricForm.shares} onChange={e => setMetricForm(f => ({ ...f, shares: e.target.value }))} />
-          <Input label="收藏数（小红书）" type="number" placeholder="0" value={metricForm.saves} onChange={e => setMetricForm(f => ({ ...f, saves: e.target.value }))} />
+          <Input label="收藏数" type="number" placeholder="0" value={metricForm.saves} onChange={e => setMetricForm(f => ({ ...f, saves: e.target.value }))} />
           <Input label="新增关注" type="number" placeholder="0" value={metricForm.follows} onChange={e => setMetricForm(f => ({ ...f, follows: e.target.value }))} />
           <Input label="完播率 (%)" type="number" placeholder="0" value={metricForm.completionRate} onChange={e => setMetricForm(f => ({ ...f, completionRate: e.target.value }))} />
         </div>

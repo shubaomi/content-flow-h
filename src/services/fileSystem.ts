@@ -95,6 +95,25 @@ export async function readAppData(): Promise<AppData> {
       data.metrics = data.metrics.filter(m => m.videoId !== 'vid_demo01')
       await writeAppData(data)
     }
+    // One-time migration: add checklistItems for existing installations
+    if (!data.checklistItems) {
+      data.checklistItems = defaultAppData().checklistItems
+      await writeAppData(data)
+    }
+    // One-time migration: TopicStatus rename (idea→inspiration, approved→adopted, rejected→inspiration)
+    const topicStatusMap: Record<string, string> = {
+      idea: 'inspiration',
+      approved: 'adopted',
+      rejected: 'inspiration',
+    }
+    const needsTopicMigration = data.topics?.some(t => t.status in topicStatusMap)
+    if (needsTopicMigration) {
+      data.topics = data.topics.map(t => ({
+        ...t,
+        status: (topicStatusMap[t.status] ?? t.status) as typeof t.status,
+      }))
+      await writeAppData(data)
+    }
     return data
   } catch {
     // First time — write defaults

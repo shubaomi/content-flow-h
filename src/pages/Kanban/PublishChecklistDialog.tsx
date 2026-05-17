@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
+import { useAppStore } from '@/store/appStore'
 
 interface PublishChecklistDialogProps {
   open: boolean
@@ -8,17 +9,11 @@ interface PublishChecklistDialogProps {
   onCancel: () => void
 }
 
-const CHECKLIST = [
-  { id: 'ai_label', text: 'AI 生成内容已标注' },
-  { id: 'no_violation', text: '抖音视频检测无违规提示' },
-  { id: 'original', text: '已标注原创' },
-  { id: 'no_third_party_url', text: '无第三方商业性质网址露出' },
-]
-
 export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }: PublishChecklistDialogProps) {
+  const checklistItems = useAppStore(s => s.data?.checklistItems ?? [])
   const [checked, setChecked] = useState<Record<string, boolean>>({})
 
-  const allChecked = CHECKLIST.every(item => checked[item.id])
+  const allChecked = checklistItems.length > 0 && checklistItems.every(item => checked[item.id])
 
   const toggle = (id: string) => setChecked(prev => ({ ...prev, [id]: !prev[id] }))
 
@@ -109,7 +104,11 @@ export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }
 
         {/* 检查项 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {CHECKLIST.map((item, i) => {
+          {checklistItems.length === 0 ? (
+            <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+              暂无检查项，可在设置页面添加
+            </div>
+          ) : checklistItems.map((item, i) => {
             const isChecked = !!checked[item.id]
             return (
               <button

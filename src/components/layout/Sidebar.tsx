@@ -13,11 +13,6 @@ const NAV = [
     icon: <svg width="16" height="16" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="1.5" y="2.5" width="3.5" height="11" rx="1.2"/><rect x="6.25" y="2.5" width="3.5" height="8" rx="1.2"/><rect x="11" y="2.5" width="3.5" height="5.5" rx="1.2"/></svg>,
   },
   {
-    path: '/videos',
-    label: '视频库',
-    icon: <svg width="16" height="16" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="10" height="10" rx="1.5"/><path d="M11 6.5l4-2v7l-4-2"/></svg>,
-  },
-  {
     path: '/topics',
     label: '选题库',
     icon: <svg width="16" height="16" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M8 1.5l1.8 3.6 4 .58-2.9 2.83.69 3.99L8 10.4l-3.59 1.9.69-4L2.2 5.68l4-.58z"/></svg>,
@@ -26,6 +21,11 @@ const NAV = [
     path: '/scripts',
     label: '逐字稿',
     icon: <svg width="16" height="16" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="2" y="1.5" width="12" height="13" rx="1.5"/><line x1="5" y1="5.5" x2="11" y2="5.5"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="5" y1="10.5" x2="9" y2="10.5"/></svg>,
+  },
+  {
+    path: '/videos',
+    label: '视频库',
+    icon: <svg width="16" height="16" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="10" height="10" rx="1.5"/><path d="M11 6.5l4-2v7l-4-2"/></svg>,
   },
   {
     path: '/analytics',

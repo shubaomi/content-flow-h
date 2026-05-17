@@ -16,3 +16,6 @@ export const calcEngagement = (
 
 export const estimateDuration = (wordCount: number): number =>
   Math.round(wordCount / 3.5)
+
+export const formatPercent = (n: number, decimals = 2): string =>
+  `${(n * 100).toFixed(decimals)}%`

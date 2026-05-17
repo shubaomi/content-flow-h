@@ -9,7 +9,7 @@ export type VideoStatus =
   | 'published'
   | 'archived'
 
-export type TopicStatus = 'idea' | 'approved' | 'in_progress' | 'done' | 'rejected'
+export type TopicStatus = 'inspiration' | 'adopted' | 'in_progress' | 'done'
 
 export type PlatformPublishStatus = 'published' | 'violated' | 'skipped'
 
@@ -34,6 +34,12 @@ export interface Tag {
   createdAt: string
 }
 
+export interface ChecklistItem {
+  id: string
+  text: string
+  createdAt: string
+}
+
 export interface PlatformPublish {
   platform: Platform
   status: PlatformPublishStatus
@@ -42,7 +48,27 @@ export interface PlatformPublish {
   platformVideoId?: string
   violation?: ViolationInfo
   skipReason?: string
+  promotionCost?: number
 }
+
+export type ShootingFormat =
+  | 'landscape'
+  | 'portrait'
+  | 'talking'
+  | 'demo'
+  | 'talking_demo'
+
+export const SHOOTING_FORMAT_LABELS: Record<ShootingFormat, string> = {
+  landscape:    '横屏',
+  portrait:     '竖屏',
+  talking:      '口播',
+  demo:         '演示',
+  talking_demo: '口播+演示',
+}
+
+export const ALL_SHOOTING_FORMATS: ShootingFormat[] = [
+  'landscape', 'portrait', 'talking', 'demo', 'talking_demo',
+]
 
 export interface StatusHistoryEntry {
   status: VideoStatus
@@ -54,6 +80,7 @@ export interface Video {
   title: string
   status: VideoStatus
   tagIds: string[]
+  shootingFormats?: ShootingFormat[]
   scriptId?: string
   topicId?: string
   statusHistory: StatusHistoryEntry[]
@@ -74,6 +101,7 @@ export interface Topic {
   tagIds: string[]
   inspiration?: string
   linkedVideoId?: string
+  abandonedAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -114,6 +142,7 @@ export interface AppSettings {
 export interface AppData {
   version: string
   tags: Tag[]
+  checklistItems: ChecklistItem[]
   videos: Video[]
   topics: Topic[]
   metrics: VideoMetrics[]
@@ -122,7 +151,7 @@ export interface AppData {
 }
 
 export const VIDEO_STATUS_LABELS: Record<VideoStatus, string> = {
-  topic: '选题',
+  topic: '待启动',
   scripting: '写稿中',
   review: '待审核',
   filming: '拍摄中',
@@ -136,11 +165,10 @@ export const VIDEO_STATUS_ORDER: VideoStatus[] = [
 ]
 
 export const TOPIC_STATUS_LABELS: Record<TopicStatus, string> = {
-  idea: '想法',
-  approved: '已批准',
-  in_progress: '进行中',
+  inspiration: '灵感',
+  adopted: '已采纳',
+  in_progress: '制作中',
   done: '已完成',
-  rejected: '已放弃',
 }
 
 export const PLATFORM_LABELS: Record<Platform, string> = {

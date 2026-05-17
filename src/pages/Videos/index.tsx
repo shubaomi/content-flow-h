@@ -236,7 +236,6 @@ export function Videos() {
 }
 
 function FilterChip({ active, onClick, label, color }: { active: boolean; onClick: () => void; label: string; color?: string }) {
-  const activeColor = color ?? 'var(--accent)'
   return (
     <button
       onClick={onClick}

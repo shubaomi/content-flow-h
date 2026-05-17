@@ -61,7 +61,7 @@ export function Dashboard() {
     return Object.values(byVideo).sort((a, b) => b.engagement - a.engagement).slice(0, 3)
   }, [metrics, videos])
 
-  const pendingTopics = topics.filter(t => t.status === 'idea' || t.status === 'approved')
+  const pendingTopics = topics.filter(t => t.status === 'inspiration' || t.status === 'adopted')
 
   const rankColors = ['#FBBF24', '#9CA3AF', '#F97316']
 

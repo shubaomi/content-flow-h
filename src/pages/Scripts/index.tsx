@@ -44,16 +44,21 @@ export function Scripts() {
   // track latest content + id for use inside async save without stale closure
   const pendingRef = useRef<{ id: string; content: string } | null>(null)
 
-  const fuse = useMemo(() => new Fuse(scripts, {
+  const sortedScripts = useMemo(() =>
+    [...scripts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [scripts]
+  )
+
+  const fuse = useMemo(() => new Fuse(sortedScripts, {
     keys: ['title'],
     threshold: 0.35,
     includeMatches: true,
-  }), [scripts])
+  }), [sortedScripts])
 
   const filteredScripts = useMemo(() => {
-    if (!searchQuery.trim()) return scripts
+    if (!searchQuery.trim()) return sortedScripts
     return fuse.search(searchQuery).map(r => r.item)
-  }, [searchQuery, fuse, scripts])
+  }, [searchQuery, fuse, sortedScripts])
 
   const selectedScript = scripts.find(s => s.id === selectedId)
 
