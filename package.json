@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:dev": "docker compose up",
+    "docker:dev:build": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:clean": "docker compose down -v"
   },
   "dependencies": {
     "@codemirror/basic-setup": "^0.20.0",
