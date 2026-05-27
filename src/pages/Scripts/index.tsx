@@ -12,7 +12,6 @@ import type { Script } from '@/types'
 import { fromNow, formatDate } from '@/utils/date'
 import { formatDuration } from '@/utils/date'
 import { readScriptContent, writeScriptContent, deleteScriptFile } from '@/services/fileSystem'
-import { DEMO_SCRIPT_CONTENTS } from '@/services/defaultData'
 
 type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
 
@@ -67,7 +66,7 @@ export function Scripts() {
     setLoadingContent(true)
     setSaveState('idle')
     readScriptContent(selectedId).then(content => {
-      setEditorContent(content || DEMO_SCRIPT_CONTENTS[selectedId] || '')
+      setEditorContent(content)
       setLoadingContent(false)
     })
   }, [selectedId])
@@ -301,7 +300,7 @@ export function Scripts() {
                 padding: '10px 20px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0,
                 background: 'var(--bg-surface)',
               }}>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   {editingTitle ? (
                     <input
                       autoFocus
@@ -313,18 +312,18 @@ export function Scripts() {
                         if (e.key === 'Escape') { setTitleValue(selectedScript.title); setEditingTitle(false) }
                       }}
                       style={{
-                        fontSize: 16, fontWeight: 600,
+                        width: '100%', fontSize: 16, fontWeight: 600,
                         background: 'transparent', border: 'none',
                         borderBottom: '2px solid var(--accent)',
                         color: 'var(--text-primary)', outline: 'none',
-                        fontFamily: 'inherit', padding: '2px 0', minWidth: 200,
+                        fontFamily: 'inherit', padding: '2px 0',
                       }}
                     />
                   ) : (
                     <h2
                       onClick={() => { setTitleValue(selectedScript.title); setEditingTitle(true) }}
                       title="点击编辑标题"
-                      style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', cursor: 'text', transition: 'color .1s' }}
+                      style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', cursor: 'text', transition: 'color .1s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent)'}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
                     >
@@ -339,7 +338,7 @@ export function Scripts() {
                     <span>更新于 {formatDate(selectedScript.updatedAt)}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                   {saveLabel && (
                     <span style={{ fontSize: 12, color: saveLabelColor, transition: 'color .2s' }}>
                       {saveLabel}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
-import { pickDirectory, isFileSystemSupported } from '@/services/fileSystem'
+import { pickDirectory, isFileSystemSupported, isSecureContext } from '@/services/fileSystem'
 import { useAppStore } from '@/store/appStore'
 
 export function DirectorySetup() {
@@ -9,6 +9,10 @@ export function DirectorySetup() {
   const loadData = useAppStore(s => s.loadData)
 
   const handlePick = async () => {
+    if (!isSecureContext()) {
+      setError('当前不在安全上下文中（需要 localhost 或 HTTPS）。Docker 部署时请通过 http://localhost:5174 访问，而非 IP 地址。')
+      return
+    }
     if (!isFileSystemSupported()) {
       setError('您的浏览器不支持 File System Access API，请使用 Chrome 或 Edge。')
       return
@@ -18,9 +22,16 @@ export function DirectorySetup() {
     try {
       await pickDirectory()
       await loadData()
+      // 如果 loadData 完成后 data 仍为 null，说明有错误，读取 store error
+      const storeError = useAppStore.getState().error
+      if (storeError) {
+        setError(`加载数据失败：${storeError}`)
+      }
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') {
-        setError('选择目录失败，请重试。')
+      const err = e as Error
+      if (err.name !== 'AbortError') {
+        setError(`选择目录失败：${err.message || '请重试'}`)
+        console.error('[DirectorySetup] pick failed:', e)
       }
     } finally {
       setLoading(false)
@@ -45,7 +56,7 @@ export function DirectorySetup() {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>IP 内容管理</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>起哥的AI实战</h1>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 32, lineHeight: 1.7 }}>
           选择一个本地文件夹作为数据目录，<br />
           您的所有数据将安全地存储在本地。

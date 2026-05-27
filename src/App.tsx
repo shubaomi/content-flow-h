@@ -54,14 +54,15 @@ const router = createBrowserRouter([
 ])
 
 export function App() {
-  const { data, loading, error, loadData } = useAppStore()
+  const { data, loading, error } = useAppStore()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
     getDirectoryHandle().then(handle => {
-      if (handle) loadData()
+      if (handle) useAppStore.getState().loadData()
     })
-  }, [loadData])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading) {
     return (

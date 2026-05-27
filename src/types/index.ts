@@ -13,16 +13,7 @@ export type TopicStatus = 'inspiration' | 'adopted' | 'in_progress' | 'done'
 
 export type PlatformPublishStatus = 'published' | 'violated' | 'skipped'
 
-export type ViolationCategory =
-  | 'content'
-  | 'copyright'
-  | 'misleading'
-  | 'spam'
-  | 'policy'
-  | 'other'
-
 export interface ViolationInfo {
-  category: ViolationCategory
   reason: string
   reportedAt: string
 }
@@ -91,6 +82,8 @@ export interface Video {
   createdAt: string
   updatedAt: string
   notes?: string
+  coverPortrait?: string  // 竖屏封面文件扩展名（有值表示封面存在）
+  coverLandscape?: string // 横屏封面文件扩展名（有值表示封面存在）
 }
 
 export interface Topic {
@@ -137,17 +130,71 @@ export interface VideoMetrics {
 export interface AppSettings {
   theme: 'dark' | 'light'
   defaultPlatforms: Platform[]
+  violationReasons: string[]
+  skipReasons: string[]
 }
+
+// 抖音作品原始数据（直接从抖音后台导出）
+export interface DouyinRawRecord {
+  id: string
+  title: string          // 作品名称
+  publishedAt: string    // 发布时间
+  genre: string          // 体裁
+  status: string         // 审核状态
+  plays: number          // 播放量
+  completionRate: number // 完播率
+  fiveSecRate: number    // 5s完播率
+  coverCtr: string       // 封面点击率（可能为 '-'）
+  twoSecBounceRate: number // 2s跳出率
+  avgPlayDuration: number  // 平均播放时长（秒）
+  likes: number          // 点赞量
+  shares: number         // 分享量
+  comments: number       // 评论量
+  saves: number          // 收藏量
+  profileVisits: number  // 主页访问量
+  followerGain: number   // 粉丝增量
+  createdAt: string
+}
+
+// 视频号动态原始数据（直接从视频号后台导出）
+export interface ShipinhaoRawRecord {
+  id: string
+  description: string    // 视频描述
+  videoId: string        // 视频ID
+  publishedAt: string    // 发布时间
+  completionRate: number // 完播率
+  avgPlayDuration: string // 平均播放时长（含单位，如 "24.67秒"）
+  plays: number          // 播放量
+  recommendations: number // 推荐
+  likes: number          // 喜欢
+  comments: number       // 评论量
+  shares: number         // 分享量
+  follows: number        // 关注量
+  forwardChat: number    // 转发聊天和朋友圈
+  setRingtone: number    // 设为铃声
+  setStatus: number      // 设为状态
+  setMomentCover: number // 设为朋友圈封面
+  createdAt: string
+}
+
+export type TransitionKey =
+  | 'topic→scripting'
+  | 'scripting→review'
+  | 'review→filming'
+  | 'filming→editing'
 
 export interface AppData {
   version: string
   tags: Tag[]
   checklistItems: ChecklistItem[]
+  transitionChecklists: Record<TransitionKey, ChecklistItem[]>
   videos: Video[]
   topics: Topic[]
   metrics: VideoMetrics[]
   scripts: Script[]
   settings: AppSettings
+  douyinRecords: DouyinRawRecord[]
+  shipinhaoRecords: ShipinhaoRawRecord[]
 }
 
 export const VIDEO_STATUS_LABELS: Record<VideoStatus, string> = {
@@ -191,11 +238,3 @@ export const PLATFORM_STATUS_COLORS: Record<PlatformPublishStatus, string> = {
   skipped: '#9CA3AF',
 }
 
-export const VIOLATION_CATEGORY_LABELS: Record<ViolationCategory, string> = {
-  content: '内容违规',
-  copyright: '版权问题',
-  misleading: '虚假信息',
-  spam: '广告营销',
-  policy: '平台政策',
-  other: '其他原因',
-}

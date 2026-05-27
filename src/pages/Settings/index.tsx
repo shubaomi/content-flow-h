@@ -6,8 +6,8 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { clearStoredHandle, pickDirectory } from '@/services/fileSystem'
-import type { Tag, ChecklistItem } from '@/types'
+import { clearStoredHandle, pickDirectory, isSecureContext, isFileSystemSupported } from '@/services/fileSystem'
+import type { Tag, ChecklistItem, TransitionKey, AppSettings } from '@/types'
 
 export function Settings() {
   const data = useAppStore(s => s.data)
@@ -23,17 +23,67 @@ export function Settings() {
   const updateChecklistItem = useAppStore(s => s.updateChecklistItem)
   const deleteChecklistItem = useAppStore(s => s.deleteChecklistItem)
 
+  const transitionChecklists = data?.transitionChecklists
+  const addTransitionChecklistItem = useAppStore(s => s.addTransitionChecklistItem)
+  const updateTransitionChecklistItem = useAppStore(s => s.updateTransitionChecklistItem)
+  const deleteTransitionChecklistItem = useAppStore(s => s.deleteTransitionChecklistItem)
+
   const [tagModal, setTagModal] = useState<{ mode: 'new' | 'edit'; tag?: Tag } | null>(null)
   const [tagForm, setTagForm] = useState({ name: '', color: '#7C3AED' })
   const [checklistModal, setChecklistModal] = useState<{ mode: 'new' | 'edit'; item?: ChecklistItem } | null>(null)
   const [checklistText, setChecklistText] = useState('')
+  const [transitionModal, setTransitionModal] = useState<{ key: TransitionKey; mode: 'new' | 'edit'; item?: ChecklistItem } | null>(null)
+  const [transitionText, setTransitionText] = useState('')
   const [reconnecting, setReconnecting] = useState(false)
+
+  // Platform annotation reason modals
+  type ReasonField = 'violationReasons' | 'skipReasons'
+  const [reasonModal, setReasonModal] = useState<{ field: ReasonField; mode: 'new' | 'edit'; index?: number } | null>(null)
+  const [reasonText, setReasonText] = useState('')
+
+  const violationReasons = data?.settings.violationReasons ?? []
+  const skipReasons = data?.settings.skipReasons ?? []
+
+  const openNewReason = (field: ReasonField) => { setReasonText(''); setReasonModal({ field, mode: 'new' }) }
+  const openEditReason = (field: ReasonField, index: number, text: string) => { setReasonText(text); setReasonModal({ field, mode: 'edit', index }) }
+
+  const handleSaveReason = () => {
+    if (!reasonText.trim() || !reasonModal) return
+    const field = reasonModal.field
+    const current: string[] = (data?.settings[field] ?? []) as string[]
+    let next: string[]
+    if (reasonModal.mode === 'new') {
+      next = [...current, reasonText.trim()]
+    } else {
+      next = current.map((r, i) => i === reasonModal.index ? reasonText.trim() : r)
+    }
+    updateSettings({ [field]: next } as Partial<AppSettings>)
+    setReasonModal(null)
+  }
+
+  const handleDeleteReason = (field: ReasonField, index: number) => {
+    const current: string[] = (data?.settings[field] ?? []) as string[]
+    updateSettings({ [field]: current.filter((_, i) => i !== index) } as Partial<AppSettings>)
+  }
 
   const openNewTag = () => { setTagForm({ name: '', color: '#7C3AED' }); setTagModal({ mode: 'new' }) }
   const openEditTag = (tag: Tag) => { setTagForm({ name: tag.name, color: tag.color }); setTagModal({ mode: 'edit', tag }) }
 
   const openNewChecklist = () => { setChecklistText(''); setChecklistModal({ mode: 'new' }) }
   const openEditChecklist = (item: ChecklistItem) => { setChecklistText(item.text); setChecklistModal({ mode: 'edit', item }) }
+
+  const openNewTransitionChecklist = (key: TransitionKey) => { setTransitionText(''); setTransitionModal({ key, mode: 'new' }) }
+  const openEditTransitionChecklist = (key: TransitionKey, item: ChecklistItem) => { setTransitionText(item.text); setTransitionModal({ key, mode: 'edit', item }) }
+
+  const handleSaveTransitionChecklist = () => {
+    if (!transitionText.trim() || !transitionModal) return
+    if (transitionModal.mode === 'new') {
+      addTransitionChecklistItem(transitionModal.key, transitionText.trim())
+    } else if (transitionModal.item) {
+      updateTransitionChecklistItem(transitionModal.key, transitionModal.item.id, transitionText.trim())
+    }
+    setTransitionModal(null)
+  }
 
   const handleSaveChecklist = () => {
     if (!checklistText.trim()) return
@@ -68,6 +118,14 @@ export function Settings() {
   }
 
   const handleReconnect = async () => {
+    if (!isSecureContext()) {
+      alert('当前不在安全上下文中。Docker 部署时请通过 http://localhost:5174 访问，而非 IP 地址。')
+      return
+    }
+    if (!isFileSystemSupported()) {
+      alert('您的浏览器不支持 File System Access API，请使用 Chrome 或 Edge。')
+      return
+    }
     setReconnecting(true)
     try {
       await clearStoredHandle()
@@ -82,120 +140,254 @@ export function Settings() {
     <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>{text}</h2>
   )
 
+  const groupLabel = (text: string) => (
+    <div style={{
+      fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)',
+      textTransform: 'uppercase', letterSpacing: '0.09em',
+      paddingBottom: 10, marginBottom: 4,
+      borderBottom: '1px solid var(--border-subtle)',
+    }}>
+      {text}
+    </div>
+  )
+
+  const itemListStyle: React.CSSProperties = {
+    borderRadius: 12, border: '1px solid var(--border-subtle)', overflow: 'hidden',
+  }
+
+  const renderItemRow = (
+    key: string,
+    label: React.ReactNode,
+    onEdit: () => void,
+    onDelete: () => void,
+    isLast: boolean,
+  ) => (
+    <div
+      key={key}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 16px',
+        borderBottom: isLast ? 'none' : '1px solid var(--border-subtle)',
+        background: 'var(--bg-surface)',
+        transition: 'background .1s',
+      }}
+      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
+      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)'}
+    >
+      {label}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button
+          onClick={onEdit}
+          style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
+        >
+          编辑
+        </button>
+        <button
+          onClick={onDelete}
+          style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#F87171'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
+        >
+          删除
+        </button>
+      </div>
+    </div>
+  )
+
+  const renderTransitionSection = (key: TransitionKey, label: string) => {
+    const items = transitionChecklists?.[key] ?? []
+    return (
+      <div key={key}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
+          <Button variant="secondary" size="sm" onClick={() => openNewTransitionChecklist(key)}>+ 新建检查项</Button>
+        </div>
+        <div style={itemListStyle}>
+          {items.length === 0 ? (
+            <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text-tertiary)' }}>
+              暂无检查项，状态变更时将直接放行
+            </div>
+          ) : (
+            items.map((item, i) => renderItemRow(
+              item.id,
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)',
+                }}>
+                  {i + 1}
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{item.text}</span>
+              </div>,
+              () => openEditTransitionChecklist(key, item),
+              () => deleteTransitionChecklistItem(key, item.id),
+              i === items.length - 1,
+            ))
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <PageContainer title="设置">
-      <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 40 }}>
 
-        {/* Theme */}
-        <section>
-          {sectionTitle('外观')}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {(['dark', 'light'] as const).map(t => {
-              const active = data?.settings.theme === t
-              return (
-                <button
-                  key={t}
-                  onClick={() => updateSettings({ theme: t })}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border-default)'}`,
-                    background: active ? 'var(--accent-subtle)' : 'transparent',
-                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-                    transition: 'all .12s',
-                  }}
-                >
-                  {t === 'dark' ? (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M12 7.5A5 5 0 016.5 2 5 5 0 1012 7.5z" stroke="currentColor" strokeWidth="1.5"/>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.8 2.8l1.1 1.1M10.1 10.1l1.1 1.1M2.8 11.2l1.1-1.1M10.1 3.9l1.1-1.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  )}
-                  {t === 'dark' ? '深色模式' : '浅色模式'}
-                </button>
-              )
-            })}
-          </div>
-        </section>
+        {/* ── 系统 ─────────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {groupLabel('系统')}
 
-        {/* Tags */}
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            {sectionTitle('标签管理')}
-            <Button variant="secondary" size="sm" onClick={openNewTag}>+ 新建标签</Button>
-          </div>
-          <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-            {tags.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>暂无标签</div>
-            ) : (
-              tags.map((tag, i) => (
-                <div
-                  key={tag.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 16px',
-                    borderBottom: i < tags.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                    transition: 'background .1s',
-                    background: 'var(--bg-surface)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)'}
-                >
+          {/* Theme */}
+          <section>
+            {sectionTitle('外观')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {(['dark', 'light'] as const).map(t => {
+                const active = data?.settings.theme === t
+                return (
+                  <button
+                    key={t}
+                    onClick={() => updateSettings({ theme: t })}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border-default)'}`,
+                      background: active ? 'var(--accent-subtle)' : 'transparent',
+                      color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                      transition: 'all .12s',
+                    }}
+                  >
+                    {t === 'dark' ? (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M12 7.5A5 5 0 016.5 2 5 5 0 1012 7.5z" stroke="currentColor" strokeWidth="1.5"/>
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.8 2.8l1.1 1.1M10.1 10.1l1.1 1.1M2.8 11.2l1.1-1.1M10.1 3.9l1.1-1.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                    {t === 'dark' ? '深色模式' : '浅色模式'}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* Data management */}
+          <section>
+            {sectionTitle('数据管理')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                {
+                  title: '导出备份',
+                  desc: '将所有数据导出为 JSON 文件',
+                  action: <Button variant="secondary" size="sm" onClick={handleExport}>导出</Button>,
+                },
+                {
+                  title: '重新选择数据目录',
+                  desc: '更改或重新授权本地数据存储目录',
+                  action: <Button variant="secondary" size="sm" loading={reconnecting} onClick={handleReconnect}>重新选择</Button>,
+                },
+              ].map(item => (
+                <div key={item.title} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: 16, borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
+                }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{item.title}</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>{item.desc}</p>
+                  </div>
+                  {item.action}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Keyboard shortcuts */}
+          <section>
+            {sectionTitle('快捷键')}
+            <div style={itemListStyle}>
+              {[
+                ['Cmd + S', '保存逐字稿'],
+                ['Esc', '关闭弹窗 / 侧边栏'],
+              ].map(([key, desc], i, arr) => (
+                <div key={key} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 16px',
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{desc}</span>
+                  <kbd style={{
+                    padding: '2px 8px', borderRadius: 4,
+                    border: '1px solid var(--border-default)',
+                    fontSize: 11, fontFamily: 'monospace', color: 'var(--text-tertiary)',
+                  }}>{key}</kbd>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* ── 内容创作 ──────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {groupLabel('内容创作')}
+
+          {/* Tags */}
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              {sectionTitle('标签管理')}
+              <Button variant="secondary" size="sm" onClick={openNewTag}>+ 新建标签</Button>
+            </div>
+            <div style={itemListStyle}>
+              {tags.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>暂无标签</div>
+              ) : (
+                tags.map((tag, i) => renderItemRow(
+                  tag.id,
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 12, height: 12, borderRadius: '50%', background: tag.color, flexShrink: 0 }} />
                     <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{tag.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button
-                      onClick={() => openEditTag(tag)}
-                      style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => deleteTag(tag.id)}
-                      style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#F87171'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
-                    >
-                      删除
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+                  </div>,
+                  () => openEditTag(tag),
+                  () => deleteTag(tag.id),
+                  i === tags.length - 1,
+                ))
+              )}
+            </div>
+          </section>
+        </div>
 
-        {/* Checklist Items */}
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            {sectionTitle('发布前检查项')}
-            <Button variant="secondary" size="sm" onClick={openNewChecklist}>+ 新建检查项</Button>
-          </div>
-          <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-            {checklistItems.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>暂无检查项</div>
-            ) : (
-              checklistItems.map((item, i) => (
-                <div
-                  key={item.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 16px',
-                    borderBottom: i < checklistItems.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                    background: 'var(--bg-surface)',
-                    transition: 'background .1s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)'}
-                >
+        {/* ── 看板流程 ──────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {groupLabel('看板流程')}
+
+          {/* Transition Checklist Items */}
+          <section>
+            {sectionTitle('状态转换检查项')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {renderTransitionSection('topic→scripting', '待启动 → 写稿中')}
+              {renderTransitionSection('scripting→review', '写稿中 → 待审核')}
+              {renderTransitionSection('review→filming', '待审核 → 拍摄中')}
+              {renderTransitionSection('filming→editing', '拍摄中 → 剪辑中')}
+            </div>
+          </section>
+
+          {/* Checklist Items（发布前） */}
+          <section>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              {sectionTitle('剪辑中 → 已发布（发布前检查项）')}
+              <Button variant="secondary" size="sm" onClick={openNewChecklist}>+ 新建检查项</Button>
+            </div>
+            <div style={itemListStyle}>
+              {checklistItems.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>暂无检查项</div>
+              ) : (
+                checklistItems.map((item, i) => renderItemRow(
+                  item.id,
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{
                       width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
@@ -206,84 +398,52 @@ export function Settings() {
                       {i + 1}
                     </div>
                     <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{item.text}</span>
+                  </div>,
+                  () => openEditChecklist(item),
+                  () => deleteChecklistItem(item.id),
+                  i === checklistItems.length - 1,
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+
+        {/* ── 平台发布 ──────────────────────────────── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {groupLabel('平台发布')}
+
+          {/* Platform annotation reasons */}
+          <section>
+            {sectionTitle('平台标注选项')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {([
+                { field: 'violationReasons' as ReasonField, label: '违规原因', items: violationReasons },
+                { field: 'skipReasons' as ReasonField, label: '跳过原因', items: skipReasons },
+              ]).map(({ field, label, items }) => (
+                <div key={field}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
+                    <Button variant="secondary" size="sm" onClick={() => openNewReason(field)}>+ 新建</Button>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button
-                      onClick={() => openEditChecklist(item)}
-                      style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => deleteChecklistItem(item.id)}
-                      style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#F87171'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
-                    >
-                      删除
-                    </button>
+                  <div style={itemListStyle}>
+                    {items.length === 0 ? (
+                      <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text-tertiary)' }}>暂无选项</div>
+                    ) : (
+                      items.map((item, i) => renderItemRow(
+                        `${field}-${i}`,
+                        <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{item}</span>,
+                        () => openEditReason(field, i, item),
+                        () => handleDeleteReason(field, i),
+                        i === items.length - 1,
+                      ))
+                    )}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </div>
 
-        {/* Data management */}
-        <section>
-          {sectionTitle('数据管理')}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              {
-                title: '导出备份',
-                desc: '将所有数据导出为 JSON 文件',
-                action: <Button variant="secondary" size="sm" onClick={handleExport}>导出</Button>,
-              },
-              {
-                title: '重新选择数据目录',
-                desc: '更改或重新授权本地数据存储目录',
-                action: <Button variant="secondary" size="sm" loading={reconnecting} onClick={handleReconnect}>重新选择</Button>,
-              },
-            ].map(item => (
-              <div key={item.title} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: 16, borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
-              }}>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{item.title}</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>{item.desc}</p>
-                </div>
-                {item.action}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Keyboard shortcuts */}
-        <section>
-          {sectionTitle('快捷键')}
-          <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-            {[
-              ['Cmd + S', '保存逐字稿'],
-              ['Esc', '关闭弹窗 / 侧边栏'],
-            ].map(([key, desc], i, arr) => (
-              <div key={key} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 16px',
-                borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-              }}>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{desc}</span>
-                <kbd style={{
-                  padding: '2px 8px', borderRadius: 4,
-                  border: '1px solid var(--border-default)',
-                  fontSize: 11, fontFamily: 'monospace', color: 'var(--text-tertiary)',
-                }}>{key}</kbd>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
 
       {/* Tag modal */}
@@ -335,6 +495,7 @@ export function Settings() {
           </div>
         </div>
       </Modal>
+
       {/* Checklist modal */}
       <Modal
         open={!!checklistModal}
@@ -354,6 +515,50 @@ export function Settings() {
           onChange={e => setChecklistText(e.target.value)}
           autoFocus
           onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveChecklist() }}
+        />
+      </Modal>
+
+      {/* Transition checklist modal */}
+      <Modal
+        open={!!transitionModal}
+        onClose={() => setTransitionModal(null)}
+        title={transitionModal?.mode === 'new' ? '新建检查项' : '编辑检查项'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setTransitionModal(null)}>取消</Button>
+            <Button variant="primary" onClick={handleSaveTransitionChecklist} disabled={!transitionText.trim()}>保存</Button>
+          </>
+        }
+      >
+        <Input
+          label="检查项内容"
+          value={transitionText}
+          onChange={e => setTransitionText(e.target.value)}
+          autoFocus
+          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveTransitionChecklist() }}
+        />
+      </Modal>
+
+      {/* Reason modal (violation / skip) */}
+      <Modal
+        open={!!reasonModal}
+        onClose={() => setReasonModal(null)}
+        title={reasonModal?.mode === 'new' ? '新建选项' : '编辑选项'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setReasonModal(null)}>取消</Button>
+            <Button variant="primary" onClick={handleSaveReason} disabled={!reasonText.trim()}>保存</Button>
+          </>
+        }
+      >
+        <Input
+          label="选项内容"
+          value={reasonText}
+          onChange={e => setReasonText(e.target.value)}
+          autoFocus
+          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveReason() }}
         />
       </Modal>
     </PageContainer>

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { AppData, Video, Topic, Script, Tag, VideoMetrics, AppSettings, VideoStatus, Platform, PlatformPublish } from '@/types'
+import type { AppData, Video, Topic, Script, Tag, VideoMetrics, AppSettings, VideoStatus, Platform, PlatformPublish, TransitionKey, DouyinRawRecord, ShipinhaoRawRecord } from '@/types'
 import { now } from '@/utils/date'
 import { videoId, topicId, scriptId, tagId, metricId, checklistItemId } from '@/utils/id'
 import { readAppData, writeAppData } from '@/services/fileSystem'
@@ -20,6 +20,7 @@ interface AppState {
   updateVideo: (id: string, patch: Partial<Video>) => void
   deleteVideo: (id: string) => void
   moveVideo: (id: string, status: VideoStatus) => void
+  updateVideoCover: (id: string, orientation: 'portrait' | 'landscape', ext: string | undefined) => void
 
   // Topics
   addTopic: (t: Omit<Topic, 'id' | 'createdAt' | 'updatedAt'>) => void
@@ -52,15 +53,29 @@ interface AppState {
   updateChecklistItem: (id: string, text: string) => void
   deleteChecklistItem: (id: string) => void
 
+  // TransitionChecklists
+  addTransitionChecklistItem: (key: TransitionKey, text: string) => void
+  updateTransitionChecklistItem: (key: TransitionKey, id: string, text: string) => void
+  deleteTransitionChecklistItem: (key: TransitionKey, id: string) => void
+
+  // Platform raw records
+  setDouyinRecords: (records: DouyinRawRecord[]) => void
+  setShipinhaoRecords: (records: ShipinhaoRawRecord[]) => void
+
   // Settings
   updateSettings: (patch: Partial<AppSettings>) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+let pendingSave = false
 
 const scheduleSave = (getState: () => AppState) => {
+  pendingSave = true
   if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => getState().saveData(), 600)
+  saveTimer = setTimeout(() => {
+    pendingSave = false
+    getState().saveData()
+  }, 600)
 }
 
 export const useAppStore = create<AppState>()(
@@ -74,16 +89,7 @@ export const useAppStore = create<AppState>()(
       set(s => { s.loading = true; s.error = null })
       try {
         const data = await readAppData()
-        // 去重：每个 videoId+platform 只保留 recordedAt 最新的一条
-        const latest = new Map<string, typeof data.metrics[0]>()
-        for (const m of data.metrics) {
-          const key = `${m.videoId}:${m.platform}`
-          const existing = latest.get(key)
-          if (!existing || m.recordedAt > existing.recordedAt) latest.set(key, m)
-        }
-        data.metrics = Array.from(latest.values())
         set(s => { s.data = data; s.loading = false })
-        // Apply saved theme
         document.documentElement.setAttribute('data-theme', data.settings.theme)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -94,9 +100,12 @@ export const useAppStore = create<AppState>()(
     saveData: async () => {
       const { data } = get()
       if (!data) return
-      set(s => { s.saving = true })
+      set(s => { s.saving = true; s.error = null })
       try {
         await writeAppData(data)
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        set(s => { s.error = `保存失败：${msg}` })
       } finally {
         set(s => { s.saving = false })
       }
@@ -124,6 +133,21 @@ export const useAppStore = create<AppState>()(
         const idx = s.data.videos.findIndex(v => v.id === id)
         if (idx === -1) return
         Object.assign(s.data.videos[idx], patch, { updatedAt: now() })
+      })
+      scheduleSave(get)
+    },
+
+    updateVideoCover: (id, orientation, ext) => {
+      set(s => {
+        if (!s.data) return
+        const v = s.data.videos.find(v => v.id === id)
+        if (!v) return
+        if (orientation === 'portrait') {
+          if (ext) v.coverPortrait = ext; else delete v.coverPortrait
+        } else {
+          if (ext) v.coverLandscape = ext; else delete v.coverLandscape
+        }
+        v.updatedAt = now()
       })
       scheduleSave(get)
     },
@@ -422,6 +446,43 @@ export const useAppStore = create<AppState>()(
       scheduleSave(get)
     },
 
+    // ---- TransitionChecklists ----
+    addTransitionChecklistItem: (key, text) => {
+      set(s => {
+        if (!s.data) return
+        s.data.transitionChecklists[key].push({ id: checklistItemId(), text, createdAt: now() })
+      })
+      scheduleSave(get)
+    },
+
+    updateTransitionChecklistItem: (key, id, text) => {
+      set(s => {
+        if (!s.data) return
+        const item = s.data.transitionChecklists[key].find(c => c.id === id)
+        if (item) item.text = text
+      })
+      scheduleSave(get)
+    },
+
+    deleteTransitionChecklistItem: (key, id) => {
+      set(s => {
+        if (!s.data) return
+        s.data.transitionChecklists[key] = s.data.transitionChecklists[key].filter(c => c.id !== id)
+      })
+      scheduleSave(get)
+    },
+
+    // ---- Platform raw records ----
+    setDouyinRecords: (records) => {
+      set(s => { if (s.data) s.data.douyinRecords = records })
+      scheduleSave(get)
+    },
+
+    setShipinhaoRecords: (records) => {
+      set(s => { if (s.data) s.data.shipinhaoRecords = records })
+      scheduleSave(get)
+    },
+
     // ---- Settings ----
     updateSettings: (patch) => {
       set(s => {
@@ -435,3 +496,14 @@ export const useAppStore = create<AppState>()(
     },
   }))
 )
+
+// 页面关闭前强制刷盘，避免 600ms 节流窗口内的修改丢失
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (pendingSave && saveTimer) {
+      clearTimeout(saveTimer)
+      pendingSave = false
+      useAppStore.getState().saveData()
+    }
+  })
+}

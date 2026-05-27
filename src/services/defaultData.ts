@@ -1,4 +1,4 @@
-import type { AppData, Video, Topic, Script, Tag, ChecklistItem } from '@/types'
+import type { AppData, Video, Topic, Script, Tag, ChecklistItem, TransitionKey } from '@/types'
 
 const d = (daysAgo: number) => {
   const dt = new Date()
@@ -164,18 +164,35 @@ const SCRIPTS: Script[] = [
   },
 ]
 
+const DEFAULT_TRANSITION_CHECKLISTS: Record<TransitionKey, ChecklistItem[]> = {
+  'topic→scripting': [],
+  'scripting→review': [
+    { id: 'chk_sr_hook', text: '已完成开头优化（降低 2～5 秒跳出率）', createdAt: d(30) },
+  ],
+  'review→filming': [],
+  'filming→editing': [
+    { id: 'chk_fe_playback', text: '自己看回放满意，无需重拍', createdAt: d(30) },
+    { id: 'chk_fe_sync', text: '已和剪辑同学同步剪辑建议和要点', createdAt: d(30) },
+  ],
+}
+
 export function defaultAppData(): AppData {
   return {
     version: '1.0',
     tags: TAGS,
     checklistItems: CHECKLIST_ITEMS,
+    transitionChecklists: DEFAULT_TRANSITION_CHECKLISTS,
     videos: VIDEOS,
     topics: TOPICS,
     scripts: SCRIPTS,
     metrics: [],
+    douyinRecords: [],
+    shipinhaoRecords: [],
     settings: {
       theme: 'dark',
       defaultPlatforms: ['douyin', 'xiaohongshu', 'shipinhao'],
+      violationReasons: ['违反社区公约', '涉嫌第三方导流'],
+      skipReasons: ['该平台不适合此类内容', '本期跳过发布'],
     },
   }
 }

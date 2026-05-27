@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
+import { writeCoverImage, readCoverImage, deleteCoverImage } from '@/services/fileSystem'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -8,11 +9,10 @@ import { PlatformIcon } from '@/components/PlatformIcon'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import type { Platform, ViolationCategory } from '@/types'
+import type { Platform } from '@/types'
 import {
   VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, ALL_PLATFORMS, PLATFORM_LABELS,
   PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS,
-  VIOLATION_CATEGORY_LABELS,
   ALL_SHOOTING_FORMATS, SHOOTING_FORMAT_LABELS,
 } from '@/types'
 import { formatDate, fromNow } from '@/utils/date'
@@ -25,16 +25,69 @@ export function VideoDetail() {
   const tags = useAppStore(s => s.data?.tags ?? [])
   const scripts = useAppStore(s => s.data?.scripts ?? [])
   const metrics = useAppStore(s => s.data?.metrics ?? [])
+  const violationReasons = useAppStore(s => s.data?.settings.violationReasons ?? ['违反社区公约', '涉嫌第三方导流'])
+  const skipReasons = useAppStore(s => s.data?.settings.skipReasons ?? ['该平台不适合此类内容', '本期跳过发布'])
   const updateVideo = useAppStore(s => s.updateVideo)
   const moveVideo = useAppStore(s => s.moveVideo)
   const deleteVideo = useAppStore(s => s.deleteVideo)
   const addMetric = useAppStore(s => s.addMetric)
   const setPlatformEntry = useAppStore(s => s.setPlatformEntry)
   const updatePromotionCost = useAppStore(s => s.updatePromotionCost)
+  const updateVideoCover = useAppStore(s => s.updateVideoCover)
 
   const video = videos.find(v => v.id === id)
   const script = scripts.find(s => s.id === video?.scriptId)
   const videoMetrics = metrics.filter(m => m.videoId === id)
+
+  const [coverPortraitUrl, setCoverPortraitUrl] = useState<string | null>(null)
+  const [coverLandscapeUrl, setCoverLandscapeUrl] = useState<string | null>(null)
+  const portraitInputRef = useRef<HTMLInputElement>(null)
+  const landscapeInputRef = useRef<HTMLInputElement>(null)
+
+  const videoId = video?.id
+  const coverPortraitExt = video?.coverPortrait
+  const coverLandscapeExt = video?.coverLandscape
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      coverPortraitExt && videoId ? readCoverImage(videoId, 'portrait', coverPortraitExt) : Promise.resolve(null),
+      coverLandscapeExt && videoId ? readCoverImage(videoId, 'landscape', coverLandscapeExt) : Promise.resolve(null),
+    ]).then(([p, l]) => {
+      if (cancelled) { if (p) URL.revokeObjectURL(p); if (l) URL.revokeObjectURL(l); return }
+      setCoverPortraitUrl(prev => { if (prev) URL.revokeObjectURL(prev); return p })
+      setCoverLandscapeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return l })
+    })
+    return () => {
+      cancelled = true
+      setCoverPortraitUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+      setCoverLandscapeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    }
+  }, [videoId, coverPortraitExt, coverLandscapeExt])
+
+  const handleCoverUpload = async (orientation: 'portrait' | 'landscape', file: File) => {
+    if (!video) return
+    const ext = await writeCoverImage(video.id, orientation, file)
+    updateVideoCover(video.id, orientation, ext)
+    const url = URL.createObjectURL(file)
+    if (orientation === 'portrait') {
+      setCoverPortraitUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url })
+    } else {
+      setCoverLandscapeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url })
+    }
+  }
+
+  const handleCoverDelete = async (orientation: 'portrait' | 'landscape') => {
+    if (!video) return
+    const ext = orientation === 'portrait' ? video.coverPortrait : video.coverLandscape
+    if (ext) await deleteCoverImage(video.id, orientation, ext)
+    updateVideoCover(video.id, orientation, undefined)
+    if (orientation === 'portrait') {
+      setCoverPortraitUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    } else {
+      setCoverLandscapeUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    }
+  }
 
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState(video?.title ?? '')
@@ -74,10 +127,7 @@ export function VideoDetail() {
   const [skipModal, setSkipModal] = useState<Platform | null>(null)
   const [skipReason, setSkipReason] = useState('')
   const [violationModal, setViolationModal] = useState<Platform | null>(null)
-  const [violationForm, setViolationForm] = useState({
-    category: 'content' as ViolationCategory,
-    reason: '',
-  })
+  const [violationReason, setViolationReason] = useState('')
 
   if (!video) {
     return (
@@ -216,6 +266,33 @@ export function VideoDetail() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
           {/* Left col */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Cover images */}
+            <div>
+              <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>封面图</p>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                {/* Portrait cover 3:4 */}
+                <CoverSlot
+                  label="竖屏 3:4"
+                  orientation="portrait"
+                  url={coverPortraitUrl}
+                  inputRef={portraitInputRef}
+                  onUpload={file => handleCoverUpload('portrait', file)}
+                  onDelete={() => handleCoverDelete('portrait')}
+                  width={80}
+                />
+                {/* Landscape cover 4:3 */}
+                <CoverSlot
+                  label="横屏 4:3"
+                  orientation="landscape"
+                  url={coverLandscapeUrl}
+                  inputRef={landscapeInputRef}
+                  onUpload={file => handleCoverUpload('landscape', file)}
+                  onDelete={() => handleCoverDelete('landscape')}
+                  width={110}
+                />
+              </div>
+            </div>
+
             <div>
               <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.07em' }}>视频简介</p>
               <Textarea
@@ -377,14 +454,14 @@ export function VideoDetail() {
                             <ActionBtn
                               label="已违规"
                               color="#EF4444"
-                              onClick={() => { setViolationForm({ category: 'content', reason: '' }); setViolationModal(platform) }}
+                              onClick={() => { setViolationReason(violationReasons[0] ?? ''); setViolationModal(platform) }}
                             />
                           )}
                           {(!pub || status !== 'skipped') && (
                             <ActionBtn
                               label="已跳过"
                               color="#9CA3AF"
-                              onClick={() => { setSkipReason(''); setSkipModal(platform) }}
+                              onClick={() => { setSkipReason(skipReasons[0] ?? ''); setSkipModal(platform) }}
                             />
                           )}
                         </div>
@@ -428,7 +505,7 @@ export function VideoDetail() {
                       )}
                       {pub && status === 'violated' && pub.violation && (
                         <p style={{ fontSize: 11, color: '#EF4444', marginTop: 4, lineHeight: 1.5 }}>
-                          {VIOLATION_CATEGORY_LABELS[pub.violation.category]} · {pub.violation.reason}
+                          {pub.violation.reason}
                         </p>
                       )}
                       {pub && status === 'skipped' && pub.skipReason && (
@@ -549,11 +626,12 @@ export function VideoDetail() {
             <Button variant="ghost" onClick={() => setSkipModal(null)}>取消</Button>
             <Button
               variant="primary"
+              disabled={!skipReason}
               onClick={() => {
                 if (!skipModal) return
                 setPlatformEntry(video.id, skipModal, {
                   status: 'skipped',
-                  skipReason: skipReason.trim() || undefined,
+                  skipReason: skipReason || undefined,
                 })
                 setSkipModal(null)
               }}
@@ -563,10 +641,9 @@ export function VideoDetail() {
           </>
         }
       >
-        <Textarea
-          label="跳过原因（可选）"
-          placeholder="例：本期账号流量异常，暂缓发布…"
-          rows={3}
+        <Select
+          label="跳过原因"
+          options={skipReasons.map(r => ({ value: r, label: r }))}
           value={skipReason}
           onChange={e => setSkipReason(e.target.value)}
         />
@@ -583,42 +660,32 @@ export function VideoDetail() {
             <Button variant="ghost" onClick={() => setViolationModal(null)}>取消</Button>
             <Button
               variant="danger"
+              disabled={!violationReason}
               onClick={() => {
-                if (!violationModal || !violationForm.reason.trim()) return
+                if (!violationModal || !violationReason) return
                 const existing = video.platforms.find(p => p.platform === violationModal)
                 setPlatformEntry(video.id, violationModal, {
                   status: 'violated',
                   publishedAt: existing?.publishedAt,
                   violation: {
-                    category: violationForm.category,
-                    reason: violationForm.reason.trim(),
+                    reason: violationReason,
                     reportedAt: new Date().toISOString(),
                   },
                 })
                 setViolationModal(null)
               }}
-              disabled={!violationForm.reason.trim()}
             >
               确认违规
             </Button>
           </>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Select
-            label="违规分类"
-            options={Object.entries(VIOLATION_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-            value={violationForm.category}
-            onChange={e => setViolationForm(f => ({ ...f, category: e.target.value as ViolationCategory }))}
-          />
-          <Textarea
-            label="违规原因 *"
-            placeholder="描述违规的具体情况，例如：平台判定内容涉及医疗建议，本期放弃该平台…"
-            rows={3}
-            value={violationForm.reason}
-            onChange={e => setViolationForm(f => ({ ...f, reason: e.target.value }))}
-          />
-        </div>
+        <Select
+          label="违规原因"
+          options={violationReasons.map(r => ({ value: r, label: r }))}
+          value={violationReason}
+          onChange={e => setViolationReason(e.target.value)}
+        />
       </Modal>
 
       {/* Delete confirm */}
@@ -637,6 +704,101 @@ export function VideoDetail() {
         <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>删除后此视频及相关记录将被移除，此操作不可撤销。</p>
       </Modal>
     </PageContainer>
+  )
+}
+
+function CoverSlot({
+  label, orientation, url, inputRef, onUpload, onDelete, width,
+}: {
+  label: string
+  orientation: 'portrait' | 'landscape'
+  url: string | null
+  inputRef: React.RefObject<HTMLInputElement | null>
+  onUpload: (file: File) => void
+  onDelete: () => void
+  width: number
+}) {
+  const height = orientation === 'portrait' ? Math.round(width * 4 / 3) : Math.round(width * 3 / 4)
+  const [hover, setHover] = useState(false)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+      <div
+        style={{
+          width, height, borderRadius: 8, overflow: 'hidden', position: 'relative',
+          border: `1px solid ${hover ? 'var(--border-default)' : 'var(--border-subtle)'}`,
+          background: 'var(--bg-elevated)',
+          cursor: 'pointer',
+          transition: 'border-color .12s',
+          flexShrink: 0,
+        }}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onClick={() => !url && inputRef.current?.click()}
+      >
+        {url ? (
+          <>
+            <img
+              src={url}
+              alt={label}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+            {hover && (
+              <div style={{
+                position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                <button
+                  onClick={e => { e.stopPropagation(); inputRef.current?.click() }}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                    background: 'rgba(255,255,255,0.15)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer',
+                  }}
+                >
+                  更换
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete() }}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                    background: 'rgba(239,68,68,0.2)', color: '#EF4444',
+                    border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer',
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{
+            width: '100%', height: '100%',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 6,
+          }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="16" height="14" rx="2"/>
+              <circle cx="7.5" cy="7.5" r="1.5"/>
+              <path d="M2 13l4.5-4.5L10 12l3-3 5 5"/>
+            </svg>
+            <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>上传</span>
+          </div>
+        )}
+      </div>
+      <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{label}</span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (file) onUpload(file)
+          e.target.value = ''
+        }}
+      />
+    </div>
   )
 }
 

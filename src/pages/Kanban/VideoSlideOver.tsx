@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ReviewConfirmDialog } from './ReviewConfirmDialog'
 import { PublishChecklistDialog } from './PublishChecklistDialog'
-import { ScriptingReviewChecklistDialog } from './ScriptingReviewChecklistDialog'
-import { FilmingEditingChecklistDialog } from './FilmingEditingChecklistDialog'
+import { TransitionChecklistDialog } from './TransitionChecklistDialog'
 import { useNavigate } from 'react-router-dom'
 import type { Video } from '@/types'
-import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS, VIOLATION_CATEGORY_LABELS, SHOOTING_FORMAT_LABELS } from '@/types'
+import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, PLATFORM_STATUS_LABELS, PLATFORM_STATUS_COLORS, SHOOTING_FORMAT_LABELS } from '@/types'
 import { useAppStore } from '@/store/appStore'
 import { StatusBadge } from '@/components/StatusBadge'
 import { PlatformIcon } from '@/components/PlatformIcon'
@@ -136,10 +134,9 @@ export function VideoSlideOver({ video, onClose }: Props) {
                           {PLATFORM_STATUS_LABELS[status]}
                         </span>
                       </div>
-                      {status === 'violated' && p.violation && (
+                      {status === 'violated' && p.violation?.reason && (
                         <div style={{ marginTop: 3, marginLeft: 24, fontSize: 11, color: 'var(--text-tertiary)' }}>
-                          {VIOLATION_CATEGORY_LABELS[p.violation.category]}
-                          {p.violation.reason && ` · ${p.violation.reason.slice(0, 28)}${p.violation.reason.length > 28 ? '…' : ''}`}
+                          {p.violation.reason.slice(0, 28)}{p.violation.reason.length > 28 ? '…' : ''}
                         </div>
                       )}
                       {status === 'skipped' && p.skipReason && (
@@ -252,9 +249,23 @@ export function VideoSlideOver({ video, onClose }: Props) {
           </button>
         </div>
       </div>
-      <ScriptingReviewChecklistDialog
+      <TransitionChecklistDialog
         open={showScriptingReviewChecklist}
         videoTitle={video.title}
+        transitionKey="scripting→review"
+        title="确认提交到「待审核」"
+        description="提交审核前，请确认以下检查项均已完成。"
+        confirmLabel="确认，提交审核"
+        accentColor="var(--accent)"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        }
         onConfirm={() => {
           moveVideo(video.id, 'review')
           setShowScriptingReviewChecklist(false)
@@ -263,9 +274,20 @@ export function VideoSlideOver({ video, onClose }: Props) {
         onCancel={() => setShowScriptingReviewChecklist(false)}
       />
 
-      <ReviewConfirmDialog
+      <TransitionChecklistDialog
         open={showReviewConfirm}
         videoTitle={video.title}
+        transitionKey="review→filming"
+        title="确认推进到「拍摄中」"
+        description="请确认以下内容均已通过审核，方可推进至拍摄阶段。"
+        confirmLabel="已确认，推进拍摄"
+        accentColor="#f97316"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+        }
         onConfirm={() => {
           moveVideo(video.id, nextStatus!)
           setShowReviewConfirm(false)
@@ -285,9 +307,23 @@ export function VideoSlideOver({ video, onClose }: Props) {
         onCancel={() => setShowPublishChecklist(false)}
       />
 
-      <FilmingEditingChecklistDialog
+      <TransitionChecklistDialog
         open={showFilmingEditingChecklist}
         videoTitle={video.title}
+        transitionKey="filming→editing"
+        title="确认推进到「剪辑中」"
+        description="进入剪辑前，请确认以下检查项均已完成。"
+        confirmLabel="确认，进入剪辑"
+        accentColor="#8b5cf6"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="6" cy="6" r="3"/>
+            <circle cx="6" cy="18" r="3"/>
+            <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+            <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+            <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+          </svg>
+        }
         onConfirm={() => {
           moveVideo(video.id, 'editing')
           setShowFilmingEditingChecklist(false)

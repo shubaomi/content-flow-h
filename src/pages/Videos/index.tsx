@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
+import { readCoverImage } from '@/services/fileSystem'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -47,7 +48,7 @@ export function Videos() {
       const q = search.toLowerCase()
       list = list.filter(v => v.title.toLowerCase().includes(q))
     }
-    return [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [videos, filterStatus, filterPlatform, search])
 
   const handleCreate = () => {
@@ -134,6 +135,7 @@ export function Videos() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+                <th style={{ width: 74, padding: '10px 8px 10px 16px' }} />
                 {['标题', '状态', '平台', '标签', '更新'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</th>
                 ))}
@@ -155,8 +157,11 @@ export function Videos() {
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)'}
                   >
+                    <td style={{ padding: '6px 8px 6px 16px', width: 74 }}>
+                      <CoverThumb videoId={video.id} ext={video.coverPortrait} />
+                    </td>
                     <td style={{ padding: '10px 16px' }}>
-                      <p style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{video.title}</p>
+                      <p style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>{video.title}</p>
                       {video.description && (
                         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{video.description}</p>
                       )}
@@ -232,6 +237,46 @@ export function Videos() {
         </div>
       </Modal>
     </PageContainer>
+  )
+}
+
+function CoverThumb({ videoId, ext }: { videoId: string; ext?: string }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const urlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!ext) { setUrl(null); return }
+    let cancelled = false
+    readCoverImage(videoId, 'portrait', ext).then(u => {
+      if (cancelled) { if (u) URL.revokeObjectURL(u); return }
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+      urlRef.current = u
+      setUrl(u)
+    })
+    return () => {
+      cancelled = true
+      if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null }
+    }
+  }, [videoId, ext])
+
+  return (
+    <div style={{
+      width: 54, height: 72, borderRadius: 6, overflow: 'hidden',
+      background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+      flexShrink: 0,
+    }}>
+      {url ? (
+        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--border-default)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="16" height="14" rx="2"/>
+            <circle cx="7.5" cy="7.5" r="1.5"/>
+            <path d="M2 13l4.5-4.5L10 12l3-3 5 5"/>
+          </svg>
+        </div>
+      )}
+    </div>
   )
 }
 

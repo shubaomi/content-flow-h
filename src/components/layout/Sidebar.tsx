@@ -36,6 +36,7 @@ const NAV = [
 
 export function Sidebar() {
   const saving = useAppStore(s => s.saving)
+  const saveError = useAppStore(s => s.error?.startsWith('保存失败') ? s.error : null)
   const theme = useAppStore(s => s.data?.settings.theme ?? 'dark')
   const updateSettings = useAppStore(s => s.updateSettings)
 
@@ -53,19 +54,25 @@ export function Sidebar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 30, height: 30, borderRadius: 8,
-            background: 'var(--accent)',
+            background: 'linear-gradient(135deg, #ff6b35 0%, #f72585 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 14 14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 7l3.5 3.5L12 3"/>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="white">
+              <polygon points="3,2 12,7 3,12"/>
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>IP 内容管理</div>
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.3 }}>
-              {saving ? '保存中…' : '本地数据'}
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>起哥的AI实战</div>
+            {(saveError || saving) && (
+              <div style={{
+                fontSize: 11,
+                color: saveError ? 'var(--status-abandoned-text, #f87171)' : 'var(--text-tertiary)',
+                lineHeight: 1.3,
+              }}>
+                {saveError ? '保存失败！' : '保存中…'}
+              </div>
+            )}
           </div>
         </div>
       </div>

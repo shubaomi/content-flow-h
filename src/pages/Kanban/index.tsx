@@ -8,10 +8,8 @@ import { useDroppable } from '@dnd-kit/core'
 import { useAppStore } from '@/store/appStore'
 import { VideoCard } from './VideoCard'
 import { VideoSlideOver } from './VideoSlideOver'
-import { ReviewConfirmDialog } from './ReviewConfirmDialog'
 import { PublishChecklistDialog } from './PublishChecklistDialog'
-import { ScriptingReviewChecklistDialog } from './ScriptingReviewChecklistDialog'
-import { FilmingEditingChecklistDialog } from './FilmingEditingChecklistDialog'
+import { TransitionChecklistDialog } from './TransitionChecklistDialog'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import type { Video, VideoStatus, Tag } from '@/types'
@@ -152,6 +150,7 @@ export function Kanban() {
     targetStatus: VideoStatus
     videoTitle: string
   } | null>(null)
+  const [pendingTopicScripting, setPendingTopicScripting] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [pendingScriptingReview, setPendingScriptingReview] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [pendingPublish, setPendingPublish] = useState<{ videoId: string; videoTitle: string } | null>(null)
   const [pendingFilmingEditing, setPendingFilmingEditing] = useState<{ videoId: string; videoTitle: string } | null>(null)
@@ -169,7 +168,13 @@ export function Kanban() {
 
   const columnVideos = useMemo(() => {
     const cols = {} as Record<VideoStatus, Video[]>
-    for (const s of VIDEO_STATUS_ORDER) cols[s] = filtered.filter(v => v.status === s)
+    for (const s of VIDEO_STATUS_ORDER) {
+      cols[s] = filtered
+        .filter(v => v.status === s)
+        .sort((a, b) => s === 'published'
+          ? b.createdAt.localeCompare(a.createdAt)
+          : 0)
+    }
     return cols
   }, [filtered])
 
@@ -201,6 +206,10 @@ export function Kanban() {
     const video = videos.find(v => v.id === videoId)
     if (!video || video.status === targetStatus) return
 
+    if (video.status === 'topic' && targetStatus === 'scripting') {
+      setPendingTopicScripting({ videoId, videoTitle: video.title })
+      return
+    }
     if (video.status === 'scripting' && targetStatus === 'review') {
       setPendingScriptingReview({ videoId, videoTitle: video.title })
       return
@@ -330,9 +339,44 @@ export function Kanban() {
 
       <VideoSlideOver video={slideOver} onClose={() => setSlideOver(null)} />
 
-      <ScriptingReviewChecklistDialog
+      <TransitionChecklistDialog
+        open={pendingTopicScripting !== null}
+        videoTitle={pendingTopicScripting?.videoTitle ?? ''}
+        transitionKey="topic→scripting"
+        title="确认开始「写稿中」"
+        description="正式进入写稿前，请确认选题已准备就绪。"
+        confirmLabel="确认，开始写稿"
+        accentColor="#3b82f6"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        }
+        onConfirm={() => {
+          if (pendingTopicScripting) moveVideo(pendingTopicScripting.videoId, 'scripting')
+          setPendingTopicScripting(null)
+        }}
+        onCancel={() => setPendingTopicScripting(null)}
+      />
+
+      <TransitionChecklistDialog
         open={pendingScriptingReview !== null}
         videoTitle={pendingScriptingReview?.videoTitle ?? ''}
+        transitionKey="scripting→review"
+        title="确认提交到「待审核」"
+        description="提交审核前，请确认以下检查项均已完成。"
+        confirmLabel="确认，提交审核"
+        accentColor="var(--accent)"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        }
         onConfirm={() => {
           if (pendingScriptingReview) moveVideo(pendingScriptingReview.videoId, 'review')
           setPendingScriptingReview(null)
@@ -340,9 +384,20 @@ export function Kanban() {
         onCancel={() => setPendingScriptingReview(null)}
       />
 
-      <ReviewConfirmDialog
+      <TransitionChecklistDialog
         open={pendingMove !== null}
         videoTitle={pendingMove?.videoTitle ?? ''}
+        transitionKey="review→filming"
+        title="确认推进到「拍摄中」"
+        description="请确认以下内容均已通过审核，方可推进至拍摄阶段。"
+        confirmLabel="已确认，推进拍摄"
+        accentColor="#f97316"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+        }
         onConfirm={() => {
           if (pendingMove) moveVideo(pendingMove.videoId, pendingMove.targetStatus)
           setPendingMove(null)
@@ -360,9 +415,23 @@ export function Kanban() {
         onCancel={() => setPendingPublish(null)}
       />
 
-      <FilmingEditingChecklistDialog
+      <TransitionChecklistDialog
         open={pendingFilmingEditing !== null}
         videoTitle={pendingFilmingEditing?.videoTitle ?? ''}
+        transitionKey="filming→editing"
+        title="确认推进到「剪辑中」"
+        description="进入剪辑前，请确认以下检查项均已完成。"
+        confirmLabel="确认，进入剪辑"
+        accentColor="#8b5cf6"
+        iconSvg={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="6" cy="6" r="3"/>
+            <circle cx="6" cy="18" r="3"/>
+            <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+            <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+            <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+          </svg>
+        }
         onConfirm={() => {
           if (pendingFilmingEditing) moveVideo(pendingFilmingEditing.videoId, 'editing')
           setPendingFilmingEditing(null)
