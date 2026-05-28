@@ -99,7 +99,7 @@ export function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           {[
             { label: '已发布', value: statusCounts.published, sub: '条视频', accent: true, path: '/videos' },
-            { label: '本月新建', value: thisMonth.length, sub: '条视频', accent: false, path: '/videos' },
+            { label: '本月新建', value: thisMonth.length, sub: '条视频', accent: false, path: '/kanban' },
             { label: '待处理选题', value: pendingTopics.length, sub: '个想法', accent: false, path: '/topics' },
             { label: '逐字稿', value: scripts.length, sub: '篇稿件', accent: false, path: '/scripts' },
           ].map(stat => (

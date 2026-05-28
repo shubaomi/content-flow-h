@@ -149,7 +149,7 @@ export const useAppStore = create<AppState>()(
         }
         v.updatedAt = now()
       })
-      scheduleSave(get)
+      get().saveData()
     },
 
     deleteVideo: (id) => {

@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { Textarea } from '@/components/ui/Input'
 import type { VideoStatus } from '@/types'
-import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER } from '@/types'
+import { VIDEO_STATUS_LABELS } from '@/types'
 
 type PlatformFilter = 'violated' | 'skipped'
 import { fromNow } from '@/utils/date'
@@ -21,6 +21,8 @@ export function Videos() {
   const videos = useAppStore(s => s.data?.videos ?? [])
   const tags = useAppStore(s => s.data?.tags ?? [])
   const addVideo = useAppStore(s => s.addVideo)
+
+  const displayVideos = useMemo(() => videos.filter(v => v.status === 'published' || v.status === 'archived'), [videos])
 
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<VideoStatus | 'all'>('all')
@@ -34,11 +36,11 @@ export function Videos() {
     setFilterStatus('all')
   }
 
-  const violated = videos.filter(v => v.platforms.some(p => (p.status ?? 'published') === 'violated'))
-  const skipped = videos.filter(v => v.platforms.some(p => (p.status ?? 'published') === 'skipped'))
+  const violated = displayVideos.filter(v => v.platforms.some(p => (p.status ?? 'published') === 'violated'))
+  const skipped = displayVideos.filter(v => v.platforms.some(p => (p.status ?? 'published') === 'skipped'))
 
   const filtered = useMemo(() => {
-    let list = videos
+    let list = displayVideos
     if (filterPlatform) {
       list = list.filter(v => v.platforms.some(p => (p.status ?? 'published') === filterPlatform))
     } else if (filterStatus !== 'all') {
@@ -49,14 +51,14 @@ export function Videos() {
       list = list.filter(v => v.title.toLowerCase().includes(q))
     }
     return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [videos, filterStatus, filterPlatform, search])
+  }, [displayVideos, filterStatus, filterPlatform, search])
 
   const handleCreate = () => {
     if (!newForm.title.trim()) return
     addVideo({
       title: newForm.title.trim(),
       description: newForm.description.trim() || undefined,
-      status: 'topic',
+      status: 'published',
       tagIds: [],
       platforms: [],
     })
@@ -67,7 +69,7 @@ export function Videos() {
   return (
     <PageContainer
       title="视频库"
-      subtitle={`${videos.length} 条视频`}
+      subtitle={`${displayVideos.length} 条视频`}
       actions={
         <Button variant="primary" size="sm" onClick={() => setNewModal(true)}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -90,10 +92,10 @@ export function Videos() {
           <FilterChip
             active={filterStatus === 'all' && !filterPlatform}
             onClick={() => setVideoFilter('all')}
-            label={`全部 (${videos.length})`}
+            label={`全部 (${displayVideos.length})`}
           />
-          {VIDEO_STATUS_ORDER.map(s => {
-            const count = videos.filter(v => v.status === s).length
+          {(['published', 'archived'] as const).map(s => {
+            const count = displayVideos.filter(v => v.status === s).length
             if (count === 0) return null
             return (
               <FilterChip
@@ -126,8 +128,8 @@ export function Videos() {
       {/* Table */}
       {filtered.length === 0 ? (
         <EmptyState
-          title="没有匹配的视频"
-          description="调整筛选条件或新建视频"
+          title="暂无已发布的视频"
+          description="看板中的视频发布后将显示在这里"
           action={<Button variant="primary" size="sm" onClick={() => setNewModal(true)}>新建视频</Button>}
         />
       ) : (
