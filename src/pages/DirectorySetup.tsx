@@ -46,10 +46,10 @@ export function DirectorySetup() {
       <div style={{ maxWidth: 360, width: '100%', margin: '0 16px', textAlign: 'center' }}>
         {/* Logo */}
         <div style={{
-          width: 64, height: 64, borderRadius: 16, background: 'var(--accent)',
+          width: 64, height: 64, borderRadius: 'var(--radius-xl)', background: 'var(--accent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 24px',
-          boxShadow: '0 8px 32px rgba(124, 58, 237, 0.35)',
+          boxShadow: '0 8px 32px rgba(124,88,237,0.4)',
         }}>
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M4 16l6 6 14-12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -87,7 +87,7 @@ export function DirectorySetup() {
           选择数据目录
         </Button>
 
-        {error && <p style={{ fontSize: 12, color: '#F87171', marginTop: 12 }}>{error}</p>}
+        {error && <p style={{ fontSize: 12, color: 'var(--danger)', marginTop: 12 }}>{error}</p>}
 
         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 16 }}>
           需要 Chrome 86+ 或 Edge 86+ 以上版本

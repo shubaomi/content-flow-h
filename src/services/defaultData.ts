@@ -183,11 +183,13 @@ export function defaultAppData(): AppData {
     checklistItems: CHECKLIST_ITEMS,
     transitionChecklists: DEFAULT_TRANSITION_CHECKLISTS,
     videos: VIDEOS,
+    videoRelations: [],
     topics: TOPICS,
     scripts: SCRIPTS,
     metrics: [],
     douyinRecords: [],
     shipinhaoRecords: [],
+    xiaohongshuRecords: [],
     settings: {
       theme: 'dark',
       defaultPlatforms: ['douyin', 'xiaohongshu', 'shipinhao'],

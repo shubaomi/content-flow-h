@@ -1,4 +1,4 @@
-import type { AppData, DouyinRawRecord, ShipinhaoRawRecord, Script, Video } from '@/types'
+import type { AppData, DouyinRawRecord, ShipinhaoRawRecord, XiaohongshuRawRecord, Script, Video } from '@/types'
 import { defaultAppData } from './defaultData'
 import { nanoid } from 'nanoid'
 
@@ -17,6 +17,24 @@ const SHIPINHAO_SEED: Omit<ShipinhaoRawRecord, 'id' | 'createdAt'>[] = [
   { description: 'Claude Code 新手必学的3个命令。', videoId: 'export/UzFfBgAAxJKDdH1UGB_sjMzT4DCaaBLRZiN8puwdosHmgUpDnA', publishedAt: '2026/05/14', completionRate: 0.1272, avgPlayDuration: '28.04秒', plays: 5426, recommendations: 13, likes: 48, comments: 3, shares: 163, follows: 20, forwardChat: 163, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
   { description: 'Mac上必装的5个App，vibe coding效率翻倍！', videoId: 'export/UzFfBgAAxOmDdEktLUXtjMzT4DCanq7GekUztn2pRHAzvs_hxw', publishedAt: '2026/05/13', completionRate: 0.1164, avgPlayDuration: '27.94秒', plays: 1752, recommendations: 2, likes: 20, comments: 5, shares: 32, follows: 1, forwardChat: 32, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
   { description: '2步做出你的第一个skill,0基础AI小白教程。', videoId: 'export/UzFfBgAAxICDGAQSclvijMzT4DCa5O6p0lO2_w2vKF8pbpN_9Q', publishedAt: '2026/05/12', completionRate: 0.0478, avgPlayDuration: '15.97秒', plays: 5780, recommendations: 7, likes: 33, comments: 5, shares: 147, follows: 26, forwardChat: 147, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
+]
+
+const XIAOHONGSHU_SEED: Omit<XiaohongshuRawRecord, 'id' | 'createdAt'>[] = [
+  { title: '做了一个工具，可视化管理本地所有的skill', publishedAt: '2026年06月02日20时34分44秒', genre: '视频', impressions: 493, views: 176, coverCtr: 0.068, likes: 6, comments: 4, saves: 4, follows: 0, shares: 2, avgWatchDuration: 8, danmaku: 0 },
+  { title: '手把手教你用deepseek跑Claude workflow', publishedAt: '2026年06月01日22时14分26秒', genre: '视频', impressions: 4157, views: 1689, coverCtr: 0.046, likes: 37, comments: 5, saves: 93, follows: 15, shares: 9, avgWatchDuration: 18, danmaku: 0 },
+  { title: '抓住AI时代的红利，普通人就做这三件事', publishedAt: '2026年05月31日09时27分28秒', genre: '视频', impressions: 1024, views: 480, coverCtr: 0.066, likes: 15, comments: 2, saves: 26, follows: 15, shares: 3, avgWatchDuration: 37, danmaku: 0 },
+  { title: 'AI时代最稀缺的岗位 FDE', publishedAt: '2026年05月30日10时30分45秒', genre: '视频', impressions: 72, views: 11, coverCtr: 0.155, likes: 0, comments: 0, saves: 0, follows: 0, shares: 0, avgWatchDuration: 21, danmaku: 0 },
+  { title: '比Opus4.8更重要的功能更新，不亚于skill', publishedAt: '2026年05月29日19时49分34秒', genre: '视频', impressions: 1831, views: 1606, coverCtr: 0.063, likes: 31, comments: 2, saves: 38, follows: 12, shares: 1, avgWatchDuration: 16, danmaku: 0 },
+  { title: '2周4万人收藏的开源设计工具open-design', publishedAt: '2026年05月28日20时47分37秒', genre: '视频', impressions: 1071, views: 230, coverCtr: 0.1, likes: 3, comments: 2, saves: 3, follows: 2, shares: 0, avgWatchDuration: 50, danmaku: 0 },
+  { title: '分享3个免费的联网搜索skill', publishedAt: '2026年05月28日19时35分29秒', genre: '视频', impressions: 51, views: 4, coverCtr: 0.098, likes: 0, comments: 0, saves: 0, follows: 0, shares: 0, avgWatchDuration: 90, danmaku: 0 },
+  { title: 'Claude和Codex怎么选？', publishedAt: '2026年05月27日19时58分56秒', genre: '视频', impressions: 817, views: 397, coverCtr: 0.098, likes: 11, comments: 0, saves: 8, follows: 5, shares: 1, avgWatchDuration: 67, danmaku: 0 },
+  { title: 'AI时代的通用语言Markdown，学5个符号掌握', publishedAt: '2026年05月26日19时36分17秒', genre: '视频', impressions: 1823, views: 308, coverCtr: 0.051, likes: 4, comments: 2, saves: 11, follows: 1, shares: 3, avgWatchDuration: 55, danmaku: 0 },
+  { title: 'Claude额度不够？6个技巧省70%token', publishedAt: '2026年05月25日22时12分26秒', genre: '视频', impressions: 77, views: 8, coverCtr: 0.12, likes: 0, comments: 0, saves: 0, follows: 0, shares: 0, avgWatchDuration: 61, danmaku: 0 },
+  { title: '我的AI学习信源，推荐9个值得关注的博主！', publishedAt: '2026年05月24日21时15分30秒', genre: '视频', impressions: 3763, views: 1467, coverCtr: 0.061, likes: 39, comments: 13, saves: 78, follows: 21, shares: 10, avgWatchDuration: 45, danmaku: 0 },
+  { title: '20万人收藏的开源项目superpowers新手指南', publishedAt: '2026年05月23日18时30分32秒', genre: '视频', impressions: 2199, views: 525, coverCtr: 0.146, likes: 25, comments: 0, saves: 27, follows: 7, shares: 1, avgWatchDuration: 47, danmaku: 0 },
+  { title: 'AI新手别在选模型上浪费时间了！', publishedAt: '2026年05月22日20时20分45秒', genre: '视频', impressions: 572, views: 234, coverCtr: 0.064, likes: 5, comments: 0, saves: 6, follows: 2, shares: 2, avgWatchDuration: 7, danmaku: 0 },
+  { title: '我做了一个可视化的管理skill的工具', publishedAt: '2026年05月21日23时59分17秒', genre: '视频', impressions: 167, views: 15, coverCtr: 0.12, likes: 1, comments: 0, saves: 1, follows: 1, shares: 0, avgWatchDuration: 52, danmaku: 0 },
+  { title: 'Karpathy不是单纯的"跳槽"而是在"下注"', publishedAt: '2026年05月20日16时27分24秒', genre: '视频', impressions: 2591, views: 1460, coverCtr: 0.078, likes: 31, comments: 0, saves: 26, follows: 42, shares: 11, avgWatchDuration: 16, danmaku: 0 },
 ]
 
 const IDB_DB = 'ip_content'
@@ -173,6 +191,7 @@ async function readJsonFile<T>(dir: FileSystemDirectoryHandle, filename: string,
 async function writeSplitAppData(dir: FileSystemDirectoryHandle, data: AppData): Promise<void> {
   await Promise.all([
     writeSingleFile(dir, 'videos.json', data.videos),
+    writeSingleFile(dir, 'videoRelations.json', data.videoRelations),
     writeSingleFile(dir, 'topics.json', data.topics),
     writeSingleFile(dir, 'scripts.json', data.scripts),
     writeSingleFile(dir, 'metrics.json', data.metrics),
@@ -184,6 +203,7 @@ async function writeSplitAppData(dir: FileSystemDirectoryHandle, data: AppData):
     writeSingleFile(dir, 'settings.json', data.settings),
     writeSingleFile(dir, 'douyinRecords.json', data.douyinRecords),
     writeSingleFile(dir, 'shipinhaoRecords.json', data.shipinhaoRecords),
+    writeSingleFile(dir, 'xiaohongshuRecords.json', data.xiaohongshuRecords),
   ])
   // version 文件留存供将来使用
   await writeSingleFile(dir, 'version.json', { version: data.version ?? '1.0' })
@@ -192,9 +212,10 @@ async function writeSplitAppData(dir: FileSystemDirectoryHandle, data: AppData):
 async function readSplitAppData(dir: FileSystemDirectoryHandle): Promise<AppData> {
   const defaults = defaultAppData()
   const [
-    videos, topics, scripts, metrics, tags, checklists, settings, douyinRecords, shipinhaoRecords, versionData,
+    videos, videoRelations, topics, scripts, metrics, tags, checklists, settings, douyinRecords, shipinhaoRecords, xiaohongshuRecords, versionData,
   ] = await Promise.all([
     readJsonFile(dir, 'videos.json', [] as AppData['videos']),
+    readJsonFile(dir, 'videoRelations.json', [] as AppData['videoRelations']),
     readJsonFile(dir, 'topics.json', [] as AppData['topics']),
     readJsonFile(dir, 'scripts.json', [] as AppData['scripts']),
     readJsonFile(dir, 'metrics.json', [] as AppData['metrics']),
@@ -206,12 +227,14 @@ async function readSplitAppData(dir: FileSystemDirectoryHandle): Promise<AppData
     readJsonFile(dir, 'settings.json', defaults.settings),
     readJsonFile(dir, 'douyinRecords.json', [] as AppData['douyinRecords']),
     readJsonFile(dir, 'shipinhaoRecords.json', [] as AppData['shipinhaoRecords']),
+    readJsonFile(dir, 'xiaohongshuRecords.json', [] as AppData['xiaohongshuRecords']),
     readJsonFile(dir, 'version.json', { version: defaults.version }),
   ])
 
   return {
     version: versionData.version ?? defaults.version,
     videos,
+    videoRelations,
     topics,
     scripts,
     metrics,
@@ -221,6 +244,7 @@ async function readSplitAppData(dir: FileSystemDirectoryHandle): Promise<AppData
     settings,
     douyinRecords,
     shipinhaoRecords,
+    xiaohongshuRecords,
   }
 }
 
@@ -244,7 +268,8 @@ async function migrateToSplitFormat(dir: FileSystemDirectoryHandle): Promise<voi
   }
 
   const oldData = JSON.parse(oldText) as AppData
-  await writeSplitAppData(dir, oldData)
+  const migratedData = { ...oldData, videoRelations: oldData.videoRelations ?? [] }
+  await writeSplitAppData(dir, migratedData)
 
   // 写备份文件
   const bakHandle = await dir.getFileHandle('data.json.bak', { create: true })
@@ -288,13 +313,19 @@ export async function readAppData(): Promise<AppData> {
   if (isEmpty) {
     const imported = await buildInitialDataFromDirectory(dir)
     if (imported.videos.length > 0) {
-      data = { ...data, videos: imported.videos, scripts: imported.scripts }
+      data = { ...data, videos: imported.videos, videoRelations: data.videoRelations ?? [], scripts: imported.scripts }
       await writeAppData(data)
       return data
     }
   }
 
   let changed = false
+
+  // One-time migration: add video relations collection for existing installations
+  if (!data.videoRelations) {
+    data.videoRelations = []
+    changed = true
+  }
 
   // One-time migration: remove demo metrics seeded by old defaultData
   if (data.metrics?.some(m => m.videoId === 'vid_demo01')) {
@@ -331,6 +362,11 @@ export async function readAppData(): Promise<AppData> {
   if (!data.shipinhaoRecords) {
     const now2 = new Date().toISOString()
     data.shipinhaoRecords = SHIPINHAO_SEED.map(r => ({ ...r, id: nanoid(), createdAt: now2 }))
+    changed = true
+  }
+  if (!data.xiaohongshuRecords || data.xiaohongshuRecords.length === 0) {
+    const now2 = new Date().toISOString()
+    data.xiaohongshuRecords = XIAOHONGSHU_SEED.map(r => ({ ...r, id: nanoid(), createdAt: now2 }))
     changed = true
   }
   // One-time migration: TopicStatus rename (idea→inspiration, approved→adopted, rejected→inspiration)
@@ -387,6 +423,7 @@ function emptyAppData(): AppData {
   return {
     ...defaultAppData(),
     videos: [],
+    videoRelations: [],
     topics: [],
     scripts: [],
     metrics: [],
@@ -403,6 +440,7 @@ async function recoverDemoIndexFromMarkdown(
   return {
     ...data,
     videos: imported.videos,
+    videoRelations: data.videoRelations ?? [],
     topics: data.topics.filter(t => !DEMO_ID_PREFIXES.some(prefix => t.id.startsWith(prefix))),
     scripts: imported.scripts,
     metrics: data.metrics.filter(m => !m.videoId.startsWith('vid_demo')),
@@ -614,6 +652,23 @@ export async function readCoverImage(
     const fileHandle = await coversDir.getFileHandle(filename, { create: false })
     const file = await fileHandle.getFile()
     return URL.createObjectURL(file)
+  } catch {
+    return null
+  }
+}
+
+export async function readCoverFile(
+  videoId: string,
+  orientation: 'portrait' | 'landscape',
+  ext: string,
+): Promise<File | null> {
+  const dir = await getDirectoryHandle()
+  if (!dir) return null
+  try {
+    const filename = `${videoId}_${orientation}.${ext}`
+    const coversDir = await getCoversDir(dir)
+    const fileHandle = await coversDir.getFileHandle(filename, { create: false })
+    return await fileHandle.getFile()
   } catch {
     return null
   }

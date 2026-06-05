@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
-import { writeCoverImage, readCoverImage, deleteCoverImage } from '@/services/fileSystem'
+import { writeCoverImage, readCoverImage, readCoverFile, deleteCoverImage } from '@/services/fileSystem'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -25,15 +25,20 @@ export function VideoDetail() {
   const tags = useAppStore(s => s.data?.tags ?? [])
   const scripts = useAppStore(s => s.data?.scripts ?? [])
   const metrics = useAppStore(s => s.data?.metrics ?? [])
+  const videoRelations = useAppStore(s => s.data?.videoRelations ?? [])
   const violationReasons = useAppStore(s => s.data?.settings.violationReasons ?? ['违反社区公约', '涉嫌第三方导流'])
   const skipReasons = useAppStore(s => s.data?.settings.skipReasons ?? ['该平台不适合此类内容', '本期跳过发布'])
   const updateVideo = useAppStore(s => s.updateVideo)
   const moveVideo = useAppStore(s => s.moveVideo)
   const deleteVideo = useAppStore(s => s.deleteVideo)
   const addMetric = useAppStore(s => s.addMetric)
+  const deleteMetric = useAppStore(s => s.deleteMetric)
   const setPlatformEntry = useAppStore(s => s.setPlatformEntry)
   const updatePromotionCost = useAppStore(s => s.updatePromotionCost)
   const updateVideoCover = useAppStore(s => s.updateVideoCover)
+  const addVideoRelation = useAppStore(s => s.addVideoRelation)
+  const updateVideoRelation = useAppStore(s => s.updateVideoRelation)
+  const deleteVideoRelation = useAppStore(s => s.deleteVideoRelation)
 
   const video = videos.find(v => v.id === id)
   const script = scripts.find(s => s.id === video?.scriptId)
@@ -89,10 +94,37 @@ export function VideoDetail() {
     }
   }
 
+  const handleCoverDownload = async (orientation: 'portrait' | 'landscape') => {
+    if (!video) return
+    const ext = orientation === 'portrait' ? video.coverPortrait : video.coverLandscape
+    if (!ext) return
+    const file = await readCoverFile(video.id, orientation, ext)
+    if (!file) return
+
+    const safeTitle = video.title
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/\s+/g, ' ')
+      .slice(0, 80) || video.id
+    const filename = `${safeTitle}-${orientation === 'portrait' ? '竖屏封面' : '横屏封面'}.${ext}`
+    const url = URL.createObjectURL(file)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState(video?.title ?? '')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [metricModal, setMetricModal] = useState(false)
+  const [relationModal, setRelationModal] = useState(false)
+  const [relationSearch, setRelationSearch] = useState('')
+  const [relationTargetId, setRelationTargetId] = useState('')
+  const [relationNote, setRelationNote] = useState('')
   const [metricForm, setMetricForm] = useState({
     platform: 'douyin' as Platform,
     plays: '', likes: '', comments: '', shares: '', saves: '', follows: '', completionRate: '',
@@ -140,6 +172,16 @@ export function VideoDetail() {
   const currentIdx = VIDEO_STATUS_ORDER.indexOf(video.status)
   const nextStatus = currentIdx < VIDEO_STATUS_ORDER.length - 2 ? VIDEO_STATUS_ORDER[currentIdx + 1] : null
   const prevStatus = currentIdx > 0 ? VIDEO_STATUS_ORDER[currentIdx - 1] : null
+  const relatedRelations = videoRelations.filter(
+    r => r.fromVideoId === video.id || r.toVideoId === video.id,
+  )
+  const relatedVideoIds = new Set(
+    relatedRelations.map(r => r.fromVideoId === video.id ? r.toVideoId : r.fromVideoId),
+  )
+  const relationCandidates = videos.filter(candidate => {
+    if (candidate.id === video.id || relatedVideoIds.has(candidate.id)) return false
+    return candidate.title.toLowerCase().includes(relationSearch.trim().toLowerCase())
+  })
 
   const handleTitleSave = () => {
     if (titleValue.trim() && titleValue !== video.title) {
@@ -162,6 +204,19 @@ export function VideoDetail() {
       completionRate: metricForm.completionRate ? Number(metricForm.completionRate) : undefined,
     })
     setMetricModal(false)
+  }
+
+  const closeRelationModal = () => {
+    setRelationModal(false)
+    setRelationSearch('')
+    setRelationTargetId('')
+    setRelationNote('')
+  }
+
+  const handleAddRelation = () => {
+    if (!relationTargetId) return
+    addVideoRelation(video.id, relationTargetId, relationNote)
+    closeRelationModal()
   }
 
   const statusOrderFiltered = VIDEO_STATUS_ORDER.filter(s => s !== 'archived')
@@ -278,6 +333,7 @@ export function VideoDetail() {
                   inputRef={portraitInputRef}
                   onUpload={file => handleCoverUpload('portrait', file)}
                   onDelete={() => handleCoverDelete('portrait')}
+                  onDownload={() => handleCoverDownload('portrait')}
                   width={80}
                 />
                 {/* Landscape cover 4:3 */}
@@ -288,6 +344,7 @@ export function VideoDetail() {
                   inputRef={landscapeInputRef}
                   onUpload={file => handleCoverUpload('landscape', file)}
                   onDelete={() => handleCoverDelete('landscape')}
+                  onDownload={() => handleCoverDownload('landscape')}
                   width={110}
                 />
               </div>
@@ -337,6 +394,57 @@ export function VideoDetail() {
                   value={video.scriptId ?? ''}
                   onChange={e => updateVideo(video.id, { scriptId: e.target.value || undefined })}
                 />
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <p style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>相关视频</p>
+                <Button variant="secondary" size="sm" onClick={() => setRelationModal(true)}>关联视频</Button>
+              </div>
+              {relatedRelations.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {relatedRelations.map(relation => {
+                    const relatedVideoId = relation.fromVideoId === video.id ? relation.toVideoId : relation.fromVideoId
+                    const relatedVideo = videos.find(v => v.id === relatedVideoId)
+                    if (!relatedVideo) return null
+                    return (
+                      <div
+                        key={relation.id}
+                        style={{
+                          padding: '10px 12px', borderRadius: 8,
+                          border: '1px solid var(--border-subtle)',
+                          background: 'var(--bg-elevated)',
+                          display: 'flex', flexDirection: 'column', gap: 8,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                              {relatedVideo.title}
+                            </p>
+                            <div style={{ marginTop: 4 }}>
+                              <StatusBadge status={relatedVideo.status} />
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            <Button variant="ghost" size="sm" onClick={() => navigate(`/videos/${relatedVideo.id}`)}>查看</Button>
+                            <Button variant="danger" size="sm" onClick={() => deleteVideoRelation(relation.id)}>移除</Button>
+                          </div>
+                        </div>
+                        <Textarea
+                          defaultValue={relation.note ?? ''}
+                          rows={2}
+                          placeholder="记录复拍、变体或跟进原因…"
+                          onBlur={e => updateVideoRelation(relation.id, e.target.value)}
+                          style={{ fontSize: 12, minHeight: 56 }}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '8px 0' }}>暂无相关视频</p>
               )}
             </div>
 
@@ -443,7 +551,7 @@ export function VideoDetail() {
                           {(!pub || status !== 'published') && (
                             <ActionBtn
                               label="已发布"
-                              color="#10B981"
+                              color="var(--success)"
                               onClick={() => setPlatformEntry(video.id, platform, {
                                 status: 'published',
                                 publishedAt: new Date().toISOString(),
@@ -453,14 +561,14 @@ export function VideoDetail() {
                           {(!pub || status !== 'violated') && (
                             <ActionBtn
                               label="已违规"
-                              color="#EF4444"
+                              color="var(--danger)"
                               onClick={() => { setViolationReason(violationReasons[0] ?? ''); setViolationModal(platform) }}
                             />
                           )}
                           {(!pub || status !== 'skipped') && (
                             <ActionBtn
                               label="已跳过"
-                              color="#9CA3AF"
+                              color="var(--text-tertiary)"
                               onClick={() => { setSkipReason(skipReasons[0] ?? ''); setSkipModal(platform) }}
                             />
                           )}
@@ -504,7 +612,7 @@ export function VideoDetail() {
                         </div>
                       )}
                       {pub && status === 'violated' && pub.violation && (
-                        <p style={{ fontSize: 11, color: '#EF4444', marginTop: 4, lineHeight: 1.5 }}>
+                        <p style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, lineHeight: 1.5 }}>
                           {pub.violation.reason}
                         </p>
                       )}
@@ -552,6 +660,7 @@ export function VideoDetail() {
                     {['平台', '日期', '播放', '点赞', '评论', '分享', '收藏', '完播率', '互动率'].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', fontSize: 11 }}>{h}</th>
                     ))}
+                    <th style={{ width: 40, padding: '8px 12px' }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -565,8 +674,35 @@ export function VideoDetail() {
                       <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{formatNumber(m.shares)}</td>
                       <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{m.saves ? formatNumber(m.saves) : '—'}</td>
                       <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{m.completionRate != null ? `${m.completionRate}%` : '—'}</td>
-                      <td style={{ padding: '8px 12px', color: '#34D399', fontWeight: 500 }}>
+                      <td style={{ padding: '8px 12px', color: 'var(--success)', fontWeight: 500 }}>
                         {calcEngagement(m.likes, m.comments, m.shares, m.plays)}%
+                      </td>
+                      <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                        <button
+                          onClick={() => deleteMetric(m.id)}
+                          title="删除此条数据"
+                          style={{
+                            width: 26, height: 26, borderRadius: 6,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            border: 'none', background: 'transparent',
+                            color: 'var(--text-tertiary)', cursor: 'pointer',
+                            transition: 'all .12s',
+                          }}
+                          onMouseEnter={e => {
+                            (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'
+                            ;(e.currentTarget as HTMLElement).style.color = 'var(--danger)'
+                          }}
+                          onMouseLeave={e => {
+                            (e.currentTarget as HTMLElement).style.background = 'transparent'
+                            ;(e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 4h12"/>
+                            <path d="M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4"/>
+                            <path d="M3.333 4v9.333A1.333 1.333 0 0 0 4.667 14.667h6.666a1.333 1.333 0 0 0 1.334-1.334V4"/>
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -578,6 +714,67 @@ export function VideoDetail() {
           )}
         </div>
       </div>
+
+      {/* Relation modal */}
+      <Modal
+        open={relationModal}
+        onClose={closeRelationModal}
+        title="关联视频"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeRelationModal}>取消</Button>
+            <Button variant="primary" onClick={handleAddRelation} disabled={!relationTargetId}>保存</Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Input
+            label="搜索视频"
+            value={relationSearch}
+            placeholder="输入标题关键词"
+            onChange={e => setRelationSearch(e.target.value)}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+            {relationCandidates.length > 0 ? relationCandidates.map(candidate => {
+              const selected = candidate.id === relationTargetId
+              return (
+                <button
+                  key={candidate.id}
+                  onClick={() => setRelationTargetId(candidate.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 10px', borderRadius: 8,
+                    border: `1px solid ${selected ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    background: selected ? 'var(--accent-alpha)' : 'var(--bg-elevated)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer', textAlign: 'left',
+                    transition: 'border-color .12s, background .12s',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {candidate.title}
+                    </p>
+                    <div style={{ marginTop: 4 }}>
+                      <StatusBadge status={candidate.status} />
+                    </div>
+                  </div>
+                </button>
+              )
+            }) : (
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '8px 0' }}>没有可关联的视频</p>
+            )}
+          </div>
+          <Textarea
+            label="备注"
+            value={relationNote}
+            placeholder="例如：违规后重发、同主题复拍、爆款跟进…"
+            rows={3}
+            onChange={e => setRelationNote(e.target.value)}
+          />
+        </div>
+      </Modal>
 
       {/* Metric modal */}
       <Modal
@@ -708,7 +905,7 @@ export function VideoDetail() {
 }
 
 function CoverSlot({
-  label, orientation, url, inputRef, onUpload, onDelete, width,
+  label, orientation, url, inputRef, onUpload, onDelete, onDownload, width,
 }: {
   label: string
   orientation: 'portrait' | 'landscape'
@@ -716,6 +913,7 @@ function CoverSlot({
   inputRef: React.RefObject<HTMLInputElement | null>
   onUpload: (file: File) => void
   onDelete: () => void
+  onDownload: () => void
   width: number
 }) {
   const height = orientation === 'portrait' ? Math.round(width * 4 / 3) : Math.round(width * 3 / 4)
@@ -746,7 +944,8 @@ function CoverSlot({
             {hover && (
               <div style={{
                 position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                flexWrap: 'wrap', padding: 6,
               }}>
                 <button
                   onClick={e => { e.stopPropagation(); inputRef.current?.click() }}
@@ -759,10 +958,20 @@ function CoverSlot({
                   更换
                 </button>
                 <button
+                  onClick={e => { e.stopPropagation(); onDownload() }}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                    background: 'rgba(255,255,255,0.15)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer',
+                  }}
+                >
+                  下载
+                </button>
+                <button
                   onClick={e => { e.stopPropagation(); onDelete() }}
                   style={{
                     padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
-                    background: 'rgba(239,68,68,0.2)', color: '#EF4444',
+                    background: 'rgba(239,68,68,0.2)', color: 'var(--danger)',
                     border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer',
                   }}
                 >

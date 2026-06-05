@@ -36,7 +36,6 @@ export function Settings() {
   const [transitionText, setTransitionText] = useState('')
   const [reconnecting, setReconnecting] = useState(false)
 
-  // Platform annotation reason modals
   type ReasonField = 'violationReasons' | 'skipReasons'
   const [reasonModal, setReasonModal] = useState<{ field: ReasonField; mode: 'new' | 'edit'; index?: number } | null>(null)
   const [reasonText, setReasonText] = useState('')
@@ -137,13 +136,13 @@ export function Settings() {
   }
 
   const sectionTitle = (text: string) => (
-    <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>{text}</h2>
+    <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12, letterSpacing: '-0.01em' }}>{text}</h2>
   )
 
   const groupLabel = (text: string) => (
     <div style={{
       fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)',
-      textTransform: 'uppercase', letterSpacing: '0.09em',
+      textTransform: 'uppercase', letterSpacing: '0.08em',
       paddingBottom: 10, marginBottom: 4,
       borderBottom: '1px solid var(--border-subtle)',
     }}>
@@ -152,7 +151,7 @@ export function Settings() {
   )
 
   const itemListStyle: React.CSSProperties = {
-    borderRadius: 12, border: '1px solid var(--border-subtle)', overflow: 'hidden',
+    borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', overflow: 'hidden',
   }
 
   const renderItemRow = (
@@ -171,7 +170,7 @@ export function Settings() {
         background: 'var(--bg-surface)',
         transition: 'background .1s',
       }}
-      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
+      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)'}
     >
       {label}
@@ -187,7 +186,7 @@ export function Settings() {
         <button
           onClick={onDelete}
           style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 4, transition: 'color .1s' }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#F87171'}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--danger)'}
           onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'}
         >
           删除
@@ -235,13 +234,12 @@ export function Settings() {
 
   return (
     <PageContainer title="设置">
-      <div style={{ maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 40 }}>
+      <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 40 }}>
 
-        {/* ── 系统 ─────────────────────────────────── */}
+        {/* ── 系统 ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {groupLabel('系统')}
 
-          {/* Theme */}
           <section>
             {sectionTitle('外观')}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -253,7 +251,7 @@ export function Settings() {
                     onClick={() => updateSettings({ theme: t })}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      padding: '8px 16px', borderRadius: 'var(--radius-md)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
                       border: `1px solid ${active ? 'var(--accent)' : 'var(--border-default)'}`,
                       background: active ? 'var(--accent-subtle)' : 'transparent',
                       color: active ? 'var(--accent)' : 'var(--text-secondary)',
@@ -277,7 +275,6 @@ export function Settings() {
             </div>
           </section>
 
-          {/* Data management */}
           <section>
             {sectionTitle('数据管理')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -295,7 +292,7 @@ export function Settings() {
               ].map(item => (
                 <div key={item.title} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: 16, borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
+                  padding: 16, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
                 }}>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{item.title}</p>
@@ -307,12 +304,11 @@ export function Settings() {
             </div>
           </section>
 
-          {/* Keyboard shortcuts */}
           <section>
             {sectionTitle('快捷键')}
             <div style={itemListStyle}>
               {[
-                ['Cmd + S', '保存逐字稿'],
+                ['⌘ + S', '保存逐字稿'],
                 ['Esc', '关闭弹窗 / 侧边栏'],
               ].map(([key, desc], i, arr) => (
                 <div key={key} style={{
@@ -324,7 +320,7 @@ export function Settings() {
                   <kbd style={{
                     padding: '2px 8px', borderRadius: 4,
                     border: '1px solid var(--border-default)',
-                    fontSize: 11, fontFamily: 'monospace', color: 'var(--text-tertiary)',
+                    fontSize: 11, fontFamily: 'ui-monospace, SF Mono, monospace', color: 'var(--text-tertiary)',
                   }}>{key}</kbd>
                 </div>
               ))}
@@ -332,11 +328,10 @@ export function Settings() {
           </section>
         </div>
 
-        {/* ── 内容创作 ──────────────────────────────── */}
+        {/* ── 内容创作 ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {groupLabel('内容创作')}
 
-          {/* Tags */}
           <section>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               {sectionTitle('标签管理')}
@@ -361,11 +356,10 @@ export function Settings() {
           </section>
         </div>
 
-        {/* ── 看板流程 ──────────────────────────────── */}
+        {/* ── 看板流程 ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {groupLabel('看板流程')}
 
-          {/* Transition Checklist Items */}
           <section>
             {sectionTitle('状态转换检查项')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -376,7 +370,6 @@ export function Settings() {
             </div>
           </section>
 
-          {/* Checklist Items（发布前） */}
           <section>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               {sectionTitle('剪辑中 → 已发布（发布前检查项）')}
@@ -408,11 +401,10 @@ export function Settings() {
           </section>
         </div>
 
-        {/* ── 平台发布 ──────────────────────────────── */}
+        {/* ── 平台发布 ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {groupLabel('平台发布')}
 
-          {/* Platform annotation reasons */}
           <section>
             {sectionTitle('平台标注选项')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -446,7 +438,7 @@ export function Settings() {
 
       </div>
 
-      {/* Tag modal */}
+      {/* Tag Modal */}
       <Modal
         open={!!tagModal}
         onClose={() => setTagModal(null)}
@@ -460,12 +452,7 @@ export function Settings() {
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Input
-            label="标签名称"
-            value={tagForm.name}
-            onChange={e => setTagForm(f => ({ ...f, name: e.target.value }))}
-            autoFocus
-          />
+          <Input label="标签名称" value={tagForm.name} onChange={e => setTagForm(f => ({ ...f, name: e.target.value }))} autoFocus />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>颜色</label>
@@ -496,7 +483,7 @@ export function Settings() {
         </div>
       </Modal>
 
-      {/* Checklist modal */}
+      {/* Checklist Modal */}
       <Modal
         open={!!checklistModal}
         onClose={() => setChecklistModal(null)}
@@ -509,16 +496,10 @@ export function Settings() {
           </>
         }
       >
-        <Input
-          label="检查项内容"
-          value={checklistText}
-          onChange={e => setChecklistText(e.target.value)}
-          autoFocus
-          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveChecklist() }}
-        />
+        <Input label="检查项内容" value={checklistText} onChange={e => setChecklistText(e.target.value)} autoFocus onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveChecklist() }} />
       </Modal>
 
-      {/* Transition checklist modal */}
+      {/* Transition Checklist Modal */}
       <Modal
         open={!!transitionModal}
         onClose={() => setTransitionModal(null)}
@@ -531,16 +512,10 @@ export function Settings() {
           </>
         }
       >
-        <Input
-          label="检查项内容"
-          value={transitionText}
-          onChange={e => setTransitionText(e.target.value)}
-          autoFocus
-          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveTransitionChecklist() }}
-        />
+        <Input label="检查项内容" value={transitionText} onChange={e => setTransitionText(e.target.value)} autoFocus onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveTransitionChecklist() }} />
       </Modal>
 
-      {/* Reason modal (violation / skip) */}
+      {/* Reason Modal */}
       <Modal
         open={!!reasonModal}
         onClose={() => setReasonModal(null)}
@@ -553,13 +528,7 @@ export function Settings() {
           </>
         }
       >
-        <Input
-          label="选项内容"
-          value={reasonText}
-          onChange={e => setReasonText(e.target.value)}
-          autoFocus
-          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveReason() }}
-        />
+        <Input label="选项内容" value={reasonText} onChange={e => setReasonText(e.target.value)} autoFocus onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSaveReason() }} />
       </Modal>
     </PageContainer>
   )

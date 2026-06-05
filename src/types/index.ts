@@ -86,6 +86,15 @@ export interface Video {
   coverLandscape?: string // 横屏封面文件扩展名（有值表示封面存在）
 }
 
+export interface VideoRelation {
+  id: string
+  fromVideoId: string
+  toVideoId: string
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Topic {
   id: string
   title: string
@@ -156,6 +165,25 @@ export interface DouyinRawRecord {
   createdAt: string
 }
 
+// 小红书笔记原始数据（直接从小红书后台导出）
+export interface XiaohongshuRawRecord {
+  id: string
+  title: string           // 笔记标题
+  publishedAt: string     // 首次发布时间
+  genre: string           // 体裁
+  impressions: number     // 曝光
+  views: number           // 观看量
+  coverCtr: number        // 封面点击率（如 0.068）
+  likes: number           // 点赞
+  comments: number        // 评论
+  saves: number           // 收藏
+  follows: number         // 涨粉
+  shares: number          // 分享
+  avgWatchDuration: number // 人均观看时长（秒）
+  danmaku: number         // 弹幕
+  createdAt: string
+}
+
 // 视频号动态原始数据（直接从视频号后台导出）
 export interface ShipinhaoRawRecord {
   id: string
@@ -189,12 +217,14 @@ export interface AppData {
   checklistItems: ChecklistItem[]
   transitionChecklists: Record<TransitionKey, ChecklistItem[]>
   videos: Video[]
+  videoRelations: VideoRelation[]
   topics: Topic[]
   metrics: VideoMetrics[]
   scripts: Script[]
   settings: AppSettings
   douyinRecords: DouyinRawRecord[]
   shipinhaoRecords: ShipinhaoRawRecord[]
+  xiaohongshuRecords: XiaohongshuRawRecord[]
 }
 
 export const VIDEO_STATUS_LABELS: Record<VideoStatus, string> = {
@@ -238,3 +268,45 @@ export const PLATFORM_STATUS_COLORS: Record<PlatformPublishStatus, string> = {
   skipped: '#9CA3AF',
 }
 
+// ══════════════════════════════════════════════
+// Content Risk Detection
+// ══════════════════════════════════════════════
+
+export type RiskLevel = 'critical' | 'high' | 'medium' | 'low'
+
+/** AI 返回的原始风险发现（不含位置信息） */
+export interface RawRiskFinding {
+  rule: string
+  level: RiskLevel
+  evidence: string
+  message: string
+  suggestion: string
+}
+
+/** 前端使用的风险发现（含位置信息和 ID） */
+export interface RiskFinding extends RawRiskFinding {
+  id: string
+  start: number    // 在全文中的字符偏移
+  end: number
+}
+
+export const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
+  critical: '严重',
+  high: '高',
+  medium: '中',
+  low: '低',
+}
+
+export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
+  critical: '#EF4444',
+  high: '#F97316',
+  medium: '#EAB308',
+  low: '#3B82F6',
+}
+
+export const RISK_LEVEL_ORDER: Record<RiskLevel, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+}

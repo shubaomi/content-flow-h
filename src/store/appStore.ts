@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { AppData, Video, Topic, Script, Tag, VideoMetrics, AppSettings, VideoStatus, Platform, PlatformPublish, TransitionKey, DouyinRawRecord, ShipinhaoRawRecord } from '@/types'
+import type { AppData, Video, Topic, Script, Tag, VideoMetrics, AppSettings, VideoStatus, Platform, PlatformPublish, TransitionKey, DouyinRawRecord, ShipinhaoRawRecord, XiaohongshuRawRecord, VideoRelation } from '@/types'
 import { now } from '@/utils/date'
-import { videoId, topicId, scriptId, tagId, metricId, checklistItemId } from '@/utils/id'
+import { videoId, topicId, scriptId, tagId, metricId, checklistItemId, videoRelationId } from '@/utils/id'
 import { readAppData, writeAppData } from '@/services/fileSystem'
 
 interface AppState {
@@ -21,6 +21,11 @@ interface AppState {
   deleteVideo: (id: string) => void
   moveVideo: (id: string, status: VideoStatus) => void
   updateVideoCover: (id: string, orientation: 'portrait' | 'landscape', ext: string | undefined) => void
+
+  // Video relations
+  addVideoRelation: (fromVideoId: string, toVideoId: string, note?: string) => void
+  updateVideoRelation: (id: string, note: string | undefined) => void
+  deleteVideoRelation: (id: string) => void
 
   // Topics
   addTopic: (t: Omit<Topic, 'id' | 'createdAt' | 'updatedAt'>) => void
@@ -61,6 +66,10 @@ interface AppState {
   // Platform raw records
   setDouyinRecords: (records: DouyinRawRecord[]) => void
   setShipinhaoRecords: (records: ShipinhaoRawRecord[]) => void
+  setXiaohongshuRecords: (records: XiaohongshuRawRecord[]) => void
+  deleteDouyinRecord: (id: string) => void
+  deleteShipinhaoRecord: (id: string) => void
+  deleteXiaohongshuRecord: (id: string) => void
 
   // Settings
   updateSettings: (patch: Partial<AppSettings>) => void
@@ -76,6 +85,82 @@ const scheduleSave = (getState: () => AppState) => {
     pendingSave = false
     getState().saveData()
   }, 600)
+}
+
+const isSameVideoPair = (relation: VideoRelation, a: string, b: string) =>
+  (relation.fromVideoId === a && relation.toVideoId === b) ||
+  (relation.fromVideoId === b && relation.toVideoId === a)
+
+const syncLinkedTitles = (
+  data: AppData,
+  source: { type: 'video' | 'topic' | 'script'; id: string },
+  title: string,
+  updatedAt: string,
+) => {
+  let video = source.type === 'video' ? data.videos.find(v => v.id === source.id) : undefined
+  let topic = source.type === 'topic' ? data.topics.find(t => t.id === source.id) : undefined
+  let script = source.type === 'script' ? data.scripts.find(sc => sc.id === source.id) : undefined
+
+  if (video) {
+    const currentVideo = video
+    topic = currentVideo.topicId
+      ? data.topics.find(t => t.id === currentVideo.topicId)
+      : data.topics.find(t => t.linkedVideoId === currentVideo.id)
+    script = currentVideo.scriptId
+      ? data.scripts.find(sc => sc.id === currentVideo.scriptId)
+      : data.scripts.find(sc => sc.videoId === currentVideo.id)
+  }
+
+  if (topic) {
+    const currentTopic = topic
+    if (!video) {
+      video = currentTopic.linkedVideoId
+        ? data.videos.find(v => v.id === currentTopic.linkedVideoId)
+        : data.videos.find(v => v.topicId === currentTopic.id)
+    }
+    if (!script) {
+      const currentVideo = video
+      script = currentVideo?.scriptId
+        ? data.scripts.find(sc => sc.id === currentVideo.scriptId)
+        : currentVideo
+          ? data.scripts.find(sc => sc.videoId === currentVideo.id) ?? data.scripts.find(sc => sc.topicId === currentTopic.id)
+          : data.scripts.find(sc => sc.topicId === currentTopic.id)
+    }
+  }
+
+  if (script) {
+    const currentScript = script
+    if (!video) {
+      video = currentScript.videoId
+        ? data.videos.find(v => v.id === currentScript.videoId)
+        : data.videos.find(v => v.scriptId === currentScript.id)
+    }
+    if (!topic) {
+      const currentVideo = video
+      topic = currentScript.topicId
+        ? data.topics.find(t => t.id === currentScript.topicId)
+        : currentVideo?.topicId
+          ? data.topics.find(t => t.id === currentVideo.topicId)
+          : currentVideo
+            ? data.topics.find(t => t.linkedVideoId === currentVideo.id)
+            : undefined
+    }
+  }
+
+  if (video && video.title !== title) {
+    video.title = title
+    video.updatedAt = updatedAt
+  }
+
+  if (topic && topic.title !== title) {
+    topic.title = title
+    topic.updatedAt = updatedAt
+  }
+
+  if (script && script.title !== title) {
+    script.title = title
+    script.updatedAt = updatedAt
+  }
 }
 
 export const useAppStore = create<AppState>()(
@@ -132,7 +217,48 @@ export const useAppStore = create<AppState>()(
         if (!s.data) return
         const idx = s.data.videos.findIndex(v => v.id === id)
         if (idx === -1) return
-        Object.assign(s.data.videos[idx], patch, { updatedAt: now() })
+        const updatedAt = now()
+        const video = s.data.videos[idx]
+        const previousTopicId = video.topicId
+        const previousScriptId = video.scriptId
+        Object.assign(video, patch, { updatedAt })
+        if (
+          typeof patch.title === 'string' ||
+          Object.prototype.hasOwnProperty.call(patch, 'topicId') ||
+          Object.prototype.hasOwnProperty.call(patch, 'scriptId')
+        ) {
+          if (previousTopicId && previousTopicId !== video.topicId) {
+            const previousTopic = s.data.topics.find(t => t.id === previousTopicId)
+            if (previousTopic?.linkedVideoId === id) {
+              delete previousTopic.linkedVideoId
+              previousTopic.updatedAt = updatedAt
+            }
+          }
+          if (video.topicId) {
+            const nextTopic = s.data.topics.find(t => t.id === video.topicId)
+            if (nextTopic && nextTopic.linkedVideoId !== id) {
+              nextTopic.linkedVideoId = id
+              nextTopic.updatedAt = updatedAt
+            }
+          }
+
+          if (previousScriptId && previousScriptId !== video.scriptId) {
+            const previousScript = s.data.scripts.find(sc => sc.id === previousScriptId)
+            if (previousScript?.videoId === id) {
+              delete previousScript.videoId
+              previousScript.updatedAt = updatedAt
+            }
+          }
+          if (video.scriptId) {
+            const nextScript = s.data.scripts.find(sc => sc.id === video.scriptId)
+            if (nextScript && nextScript.videoId !== id) {
+              nextScript.videoId = id
+              nextScript.updatedAt = updatedAt
+            }
+          }
+
+          syncLinkedTitles(s.data, { type: 'video', id }, video.title, updatedAt)
+        }
       })
       scheduleSave(get)
     },
@@ -152,6 +278,53 @@ export const useAppStore = create<AppState>()(
       get().saveData()
     },
 
+    addVideoRelation: (fromVideoId, toVideoId, note) => {
+      set(s => {
+        if (!s.data) return
+        if (fromVideoId === toVideoId) return
+        const fromVideo = s.data.videos.find(v => v.id === fromVideoId)
+        const toVideo = s.data.videos.find(v => v.id === toVideoId)
+        if (!fromVideo || !toVideo) return
+        if (s.data.videoRelations.some(r => isSameVideoPair(r, fromVideoId, toVideoId))) return
+
+        const timestamp = now()
+        const trimmedNote = note?.trim()
+        s.data.videoRelations.push({
+          id: videoRelationId(),
+          fromVideoId,
+          toVideoId,
+          note: trimmedNote || undefined,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+      })
+      scheduleSave(get)
+    },
+
+    updateVideoRelation: (id, note) => {
+      set(s => {
+        if (!s.data) return
+        const relation = s.data.videoRelations.find(r => r.id === id)
+        if (!relation) return
+        const trimmedNote = note?.trim()
+        if (trimmedNote) {
+          relation.note = trimmedNote
+        } else {
+          delete relation.note
+        }
+        relation.updatedAt = now()
+      })
+      scheduleSave(get)
+    },
+
+    deleteVideoRelation: (id) => {
+      set(s => {
+        if (!s.data) return
+        s.data.videoRelations = s.data.videoRelations.filter(r => r.id !== id)
+      })
+      scheduleSave(get)
+    },
+
     deleteVideo: (id) => {
       set(s => {
         if (!s.data) return
@@ -164,6 +337,9 @@ export const useAppStore = create<AppState>()(
           }
         }
         s.data.videos = s.data.videos.filter(v => v.id !== id)
+        s.data.videoRelations = s.data.videoRelations.filter(
+          r => r.fromVideoId !== id && r.toVideoId !== id,
+        )
       })
       scheduleSave(get)
     },
@@ -173,9 +349,10 @@ export const useAppStore = create<AppState>()(
         if (!s.data) return
         const v = s.data.videos.find(v => v.id === id)
         if (!v) return
+        const updatedAt = now()
         v.status = status
-        v.statusHistory.push({ status, changedAt: now() })
-        v.updatedAt = now()
+        v.statusHistory.push({ status, changedAt: updatedAt })
+        v.updatedAt = updatedAt
         if (status === 'scripting' && !v.scriptId) {
           const sid = scriptId()
           s.data.scripts.push({
@@ -187,8 +364,8 @@ export const useAppStore = create<AppState>()(
             estimatedDuration: 0,
             tagIds: [],
             version: 1,
-            createdAt: now(),
-            updatedAt: now(),
+            createdAt: updatedAt,
+            updatedAt,
           })
           v.scriptId = sid
         }
@@ -196,10 +373,11 @@ export const useAppStore = create<AppState>()(
           const topic = s.data.topics.find(t => t.id === v.topicId || t.linkedVideoId === v.id)
           if (topic && topic.status === 'in_progress') {
             topic.status = 'done'
-            topic.updatedAt = now()
+            topic.updatedAt = updatedAt
             // 修复断链：同步双向引用
             if (!v.topicId) v.topicId = topic.id
             if (!topic.linkedVideoId) topic.linkedVideoId = v.id
+            syncLinkedTitles(s.data, { type: 'video', id: v.id }, v.title, updatedAt)
           }
         }
       })
@@ -220,7 +398,31 @@ export const useAppStore = create<AppState>()(
         if (!s.data) return
         const idx = s.data.topics.findIndex(t => t.id === id)
         if (idx === -1) return
-        Object.assign(s.data.topics[idx], patch, { updatedAt: now() })
+        const updatedAt = now()
+        const topic = s.data.topics[idx]
+        const previousLinkedVideoId = topic.linkedVideoId
+        Object.assign(topic, patch, { updatedAt })
+        if (
+          typeof patch.title === 'string' ||
+          Object.prototype.hasOwnProperty.call(patch, 'linkedVideoId')
+        ) {
+          if (previousLinkedVideoId && previousLinkedVideoId !== topic.linkedVideoId) {
+            const previousVideo = s.data.videos.find(v => v.id === previousLinkedVideoId)
+            if (previousVideo?.topicId === id) {
+              delete previousVideo.topicId
+              previousVideo.updatedAt = updatedAt
+            }
+          }
+          if (topic.linkedVideoId) {
+            const nextVideo = s.data.videos.find(v => v.id === topic.linkedVideoId)
+            if (nextVideo && nextVideo.topicId !== id) {
+              nextVideo.topicId = id
+              nextVideo.updatedAt = updatedAt
+            }
+          }
+
+          syncLinkedTitles(s.data, { type: 'topic', id }, topic.title, updatedAt)
+        }
       })
       scheduleSave(get)
     },
@@ -241,6 +443,7 @@ export const useAppStore = create<AppState>()(
         const alreadyConverted = s.data.videos.some(v => v.topicId === id)
         if (alreadyConverted) return
         const vid = videoId()
+        const updatedAt = now()
         s.data.videos.push({
           id: vid,
           title: topic.title,
@@ -249,19 +452,21 @@ export const useAppStore = create<AppState>()(
           tagIds: [...topic.tagIds],
           platforms: [],
           topicId: id,
-          statusHistory: [{ status: 'topic', changedAt: now() }],
-          createdAt: now(),
-          updatedAt: now(),
+          statusHistory: [{ status: 'topic', changedAt: updatedAt }],
+          createdAt: updatedAt,
+          updatedAt,
         })
         topic.status = 'in_progress'
         topic.linkedVideoId = vid
-        topic.updatedAt = now()
+        topic.updatedAt = updatedAt
         const existingScript = s.data.scripts.find(sc => sc.topicId === id)
         if (existingScript) {
           const newVideo = s.data.videos.find(v => v.id === vid)
           if (newVideo) {
             newVideo.scriptId = existingScript.id
             existingScript.videoId = vid
+            existingScript.title = topic.title
+            existingScript.updatedAt = updatedAt
           }
         }
       })
@@ -292,11 +497,29 @@ export const useAppStore = create<AppState>()(
         const topic = s.data.topics.find(t => t.id === tid)
         const video = s.data.videos.find(v => v.id === vid)
         if (!topic || !video) return
+        const updatedAt = now()
+        const previousVideo = topic.linkedVideoId
+          ? s.data.videos.find(v => v.id === topic.linkedVideoId)
+          : undefined
+        if (previousVideo?.topicId === tid && previousVideo.id !== vid) {
+          delete previousVideo.topicId
+          previousVideo.updatedAt = updatedAt
+        }
+
+        const previousTopic = video.topicId
+          ? s.data.topics.find(t => t.id === video.topicId)
+          : undefined
+        if (previousTopic?.linkedVideoId === vid && previousTopic.id !== tid) {
+          delete previousTopic.linkedVideoId
+          previousTopic.updatedAt = updatedAt
+        }
+
         // 建立双向引用
         topic.linkedVideoId = vid
-        topic.updatedAt = now()
+        topic.updatedAt = updatedAt
         video.topicId = tid
-        video.updatedAt = now()
+        video.updatedAt = updatedAt
+        syncLinkedTitles(s.data, { type: 'video', id: vid }, video.title, updatedAt)
         // 如果视频已发布，选题直接标为完成
         if (video.status === 'published') {
           topic.status = 'done'
@@ -322,7 +545,31 @@ export const useAppStore = create<AppState>()(
         const idx = s.data.scripts.findIndex(sc => sc.id === id)
         if (idx === -1) return
         const sc = s.data.scripts[idx]
-        Object.assign(sc, patch, { version: sc.version + 1, updatedAt: now() })
+        const updatedAt = now()
+        const previousVideoId = sc.videoId
+        Object.assign(sc, patch, { version: sc.version + 1, updatedAt })
+        if (
+          typeof patch.title === 'string' ||
+          Object.prototype.hasOwnProperty.call(patch, 'topicId') ||
+          Object.prototype.hasOwnProperty.call(patch, 'videoId')
+        ) {
+          if (previousVideoId && previousVideoId !== sc.videoId) {
+            const previousVideo = s.data.videos.find(v => v.id === previousVideoId)
+            if (previousVideo?.scriptId === id) {
+              delete previousVideo.scriptId
+              previousVideo.updatedAt = updatedAt
+            }
+          }
+          if (sc.videoId) {
+            const nextVideo = s.data.videos.find(v => v.id === sc.videoId)
+            if (nextVideo && nextVideo.scriptId !== id) {
+              nextVideo.scriptId = id
+              nextVideo.updatedAt = updatedAt
+            }
+          }
+
+          syncLinkedTitles(s.data, { type: 'script', id }, sc.title, updatedAt)
+        }
       })
       scheduleSave(get)
     },
@@ -480,6 +727,35 @@ export const useAppStore = create<AppState>()(
 
     setShipinhaoRecords: (records) => {
       set(s => { if (s.data) s.data.shipinhaoRecords = records })
+      scheduleSave(get)
+    },
+
+    setXiaohongshuRecords: (records) => {
+      set(s => { if (s.data) s.data.xiaohongshuRecords = records })
+      scheduleSave(get)
+    },
+
+    deleteDouyinRecord: (id) => {
+      set(s => {
+        if (!s.data) return
+        s.data.douyinRecords = s.data.douyinRecords.filter(r => r.id !== id)
+      })
+      scheduleSave(get)
+    },
+
+    deleteShipinhaoRecord: (id) => {
+      set(s => {
+        if (!s.data) return
+        s.data.shipinhaoRecords = s.data.shipinhaoRecords.filter(r => r.id !== id)
+      })
+      scheduleSave(get)
+    },
+
+    deleteXiaohongshuRecord: (id) => {
+      set(s => {
+        if (!s.data) return
+        s.data.xiaohongshuRecords = s.data.xiaohongshuRecords.filter(r => r.id !== id)
+      })
       scheduleSave(get)
     },
 

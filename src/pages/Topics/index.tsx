@@ -11,10 +11,24 @@ import { TOPIC_STATUS_LABELS, VIDEO_STATUS_LABELS } from '@/types'
 import { fromNow } from '@/utils/date'
 
 const STATUS_COLORS: Record<TopicStatus, string> = {
-  inspiration: '#6B7280',
-  adopted:     '#7C3AED',
-  in_progress: '#1D4ED8',
-  done:        '#059669',
+  inspiration: 'var(--status-topic-text)',
+  adopted:     'var(--accent)',
+  in_progress: 'var(--accent-secondary)',
+  done:        'var(--status-published-text)',
+}
+
+const STATUS_BG: Record<TopicStatus, string> = {
+  inspiration: 'var(--status-topic-bg)',
+  adopted:     'var(--accent-subtle)',
+  in_progress: 'var(--status-scripting-bg)',
+  done:        'var(--status-published-bg)',
+}
+
+const STATUS_BORDER: Record<TopicStatus, string> = {
+  inspiration: 'var(--status-topic-border)',
+  adopted:     'var(--accent-light)',
+  in_progress: 'var(--status-scripting-border)',
+  done:        'var(--status-published-border)',
 }
 
 export function Topics() {
@@ -158,7 +172,7 @@ export function Topics() {
             background: filterStatus === 'all' ? 'var(--accent)' : 'transparent',
             color: filterStatus === 'all' ? '#fff' : 'var(--text-secondary)',
           }}
-          onMouseEnter={e => { if (filterStatus !== 'all') (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)' }}
+          onMouseEnter={e => { if (filterStatus !== 'all') (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
           onMouseLeave={e => { if (filterStatus !== 'all') (e.currentTarget as HTMLElement).style.background = 'transparent' }}
         >
           全部 ({topics.length})
@@ -176,7 +190,7 @@ export function Topics() {
                 background: active ? STATUS_COLORS[s] : 'transparent',
                 color: active ? '#fff' : 'var(--text-secondary)',
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)' }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
               onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
             >
               {TOPIC_STATUS_LABELS[s]} {count > 0 && `(${count})`}
@@ -205,101 +219,102 @@ export function Topics() {
                 key={topic.id}
                 onClick={() => openEdit(topic)}
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 'var(--radius-lg)',
                   border: '1px solid var(--border-subtle)',
-                  borderLeft: `3px solid ${STATUS_COLORS[topic.status]}`,
                   background: 'var(--bg-surface)',
                   padding: 16,
                   cursor: 'pointer',
-                  transition: 'border-color .12s',
+                  transition: 'border-color .12s, box-shadow .12s',
                   position: 'relative',
                 }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = `${STATUS_COLORS[topic.status]}`}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}
-                className="topic-card"
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement
+                  el.style.borderColor = 'var(--border-default)'
+                  el.style.boxShadow = 'var(--shadow-xs)'
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement
+                  el.style.borderColor = 'var(--border-subtle)'
+                  el.style.boxShadow = 'none'
+                }}
               >
-                <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4, marginBottom: 8 }}>{topic.title}</h3>
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4, marginBottom: 8, letterSpacing: '-0.01em' }}>{topic.title}</h3>
 
                 {topic.description && (
                   <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{topic.description}</p>
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  {/* 状态徽章：只读，不可点击 */}
                   <span
                     style={{
-                      fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 500,
-                      background: `${STATUS_COLORS[topic.status]}18`,
+                      fontSize: 10, padding: '2px 8px', borderRadius: 4, fontWeight: 600,
+                      background: STATUS_BG[topic.status],
                       color: STATUS_COLORS[topic.status],
-                      border: `1px solid ${STATUS_COLORS[topic.status]}40`,
-                      flexShrink: 0,
+                      border: `1px solid ${STATUS_BORDER[topic.status]}`,
+                      flexShrink: 0, letterSpacing: '-0.01em',
                     }}
                   >
                     {TOPIC_STATUS_LABELS[topic.status]}
                   </span>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} className="topic-actions">
-                    {/* 已在制作中/完成：显示查看看板链接 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {isReadOnly && linkedVideo && (
                       <button
                         onClick={e => { e.stopPropagation(); navigate('/kanban') }}
                         style={{
                           fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          background: 'rgba(29,78,216,0.12)', color: '#60A5FA',
-                          transition: 'all .1s',
+                          background: 'var(--status-scripting-bg)', color: 'var(--status-scripting-text)',
+                          fontWeight: 500, transition: 'opacity .1s',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                       >
                         → 查看看板
                       </button>
                     )}
 
-                    {/* 视频已发布但选题未同步 */}
                     {needsSync && (
                       <button
                         onClick={e => { e.stopPropagation(); linkTopicToVideo(topic.id, linkedVideo!.id) }}
                         style={{
                           fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          background: 'rgba(5,150,105,0.15)', color: '#34d399',
-                          fontWeight: 600, transition: 'all .1s',
+                          background: 'var(--status-published-bg)', color: 'var(--status-published-text)',
+                          fontWeight: 600, transition: 'opacity .1s',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                       >
                         ↻ 同步状态
                       </button>
                     )}
 
-                    {/* 制作中但未关联视频 */}
                     {notLinked && (
                       <button
                         onClick={e => openLinkVideoModal(e, topic)}
                         style={{
                           fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
-                          fontWeight: 600, transition: 'all .1s',
+                          background: 'var(--status-review-bg)', color: 'var(--status-review-text)',
+                          fontWeight: 600, transition: 'opacity .1s',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                       >
                         关联视频
                       </button>
                     )}
 
-                    {/* 逐字稿操作 */}
                     <button
                       onClick={e => { e.stopPropagation(); handleWriteScript(topic) }}
                       style={{
                         fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                        background: existingScript ? 'rgba(52,211,153,0.12)' : 'var(--bg-elevated)',
-                        color: existingScript ? '#34d399' : 'var(--text-secondary)',
-                        transition: 'all .1s',
+                        background: existingScript ? 'var(--status-published-bg)' : 'var(--bg-elevated)',
+                        color: existingScript ? 'var(--status-published-text)' : 'var(--text-secondary)',
+                        fontWeight: 500, transition: 'opacity .1s',
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                     >
-                      {existingScript ? '✓ 编辑逐字稿' : '✍ 写逐字稿'}
+                      {existingScript ? '✓ 编辑' : '✍ 写稿'}
                     </button>
                     {!existingScript && (
                       <button
@@ -307,32 +322,30 @@ export function Topics() {
                         title="关联已有逐字稿"
                         style={{
                           fontSize: 10, padding: '2px 6px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          background: 'var(--bg-elevated)', color: 'var(--text-tertiary)', transition: 'all .1s',
+                          background: 'var(--bg-elevated)', color: 'var(--text-tertiary)', transition: 'opacity .1s',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.75' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
                       >
                         关联
                       </button>
                     )}
 
-                    {/* 采纳按钮：仅灵感阶段 */}
                     {isInspiration && (
                       <button
                         onClick={e => handleAdopt(e, topic)}
                         style={{
                           fontSize: 10, padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          background: 'rgba(124,58,237,0.15)', color: '#A78BFA',
-                          fontWeight: 600, transition: 'all .1s',
+                          background: 'var(--accent-subtle)', color: 'var(--accent)',
+                          fontWeight: 600, transition: 'background .1s',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(124,58,237,0.25)' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(124,58,237,0.15)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-light)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)' }}
                       >
                         ✓ 采纳
                       </button>
                     )}
 
-                    {/* 放弃按钮：灵感和已采纳阶段可放弃 */}
                     {!isReadOnly && (
                       <button
                         onClick={e => { e.stopPropagation(); setAbandonConfirm(topic) }}
@@ -340,8 +353,8 @@ export function Topics() {
                           padding: 4, borderRadius: 4, border: 'none', cursor: 'pointer',
                           background: 'transparent', color: 'var(--text-tertiary)', transition: 'all .1s',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'; (e.currentTarget as HTMLElement).style.color = '#F87171' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)' }}
+                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(248,113,113,0.12)'; el.style.color = 'var(--danger)' }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-tertiary)' }}
                         title="放弃此选题"
                       >
                         <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
@@ -359,7 +372,7 @@ export function Topics() {
         </div>
       )}
 
-      {/* 关联看板视频弹窗 */}
+      {/* Link Video Modal */}
       <Modal
         open={!!linkVideoModal}
         onClose={() => setLinkVideoModal(null)}
@@ -378,7 +391,7 @@ export function Topics() {
           </p>
           {videos.filter(v => !v.topicId).length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>
-              暂无可关联的视频（所有视频已关联其他选题）
+              暂无可关联的视频
             </p>
           ) : (
             videos.filter(v => !v.topicId).map(v => (
@@ -387,7 +400,8 @@ export function Topics() {
                 onClick={() => setLinkVideoId(v.id)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 12px', borderRadius: 8, border: '1px solid',
+                  padding: '10px 12px', borderRadius: 'var(--radius-md)',
+                  border: '1px solid',
                   borderColor: linkVideoId === v.id ? 'var(--accent)' : 'var(--border-subtle)',
                   background: linkVideoId === v.id ? 'var(--accent-subtle)' : 'var(--bg-surface)',
                   cursor: 'pointer', textAlign: 'left', transition: 'all .1s',
@@ -403,7 +417,7 @@ export function Topics() {
         </div>
       </Modal>
 
-      {/* 关联逐字稿弹窗 */}
+      {/* Link Script Modal */}
       <Modal
         open={!!linkModal}
         onClose={() => setLinkModal(null)}
@@ -419,7 +433,7 @@ export function Topics() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {scripts.filter(s => !s.topicId).length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>
-              暂无可关联的逐字稿（所有逐字稿已关联其他选题）
+              暂无可关联的逐字稿
             </p>
           ) : (
             scripts.filter(s => !s.topicId).map(s => (
@@ -428,7 +442,8 @@ export function Topics() {
                 onClick={() => setLinkScriptId(s.id)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 12px', borderRadius: 8, border: '1px solid',
+                  padding: '10px 12px', borderRadius: 'var(--radius-md)',
+                  border: '1px solid',
                   borderColor: linkScriptId === s.id ? 'var(--accent)' : 'var(--border-subtle)',
                   background: linkScriptId === s.id ? 'var(--accent-subtle)' : 'var(--bg-surface)',
                   cursor: 'pointer', textAlign: 'left', transition: 'all .1s',
@@ -444,7 +459,7 @@ export function Topics() {
         </div>
       </Modal>
 
-      {/* 新建/编辑选题弹窗（无状态选择） */}
+      {/* New/Edit Topic Modal */}
       <Modal
         open={!!modal}
         onClose={() => setModal(null)}
@@ -464,7 +479,7 @@ export function Topics() {
         </div>
       </Modal>
 
-      {/* 放弃确认弹窗 */}
+      {/* Abandon Confirm */}
       <Modal
         open={!!abandonConfirm}
         onClose={() => setAbandonConfirm(null)}
@@ -473,13 +488,7 @@ export function Topics() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setAbandonConfirm(null)}>取消</Button>
-            <Button
-              variant="primary"
-              onClick={handleAbandonConfirm}
-              style={{ background: '#EF4444' }}
-            >
-              确认放弃
-            </Button>
+            <Button variant="danger" onClick={handleAbandonConfirm}>确认放弃</Button>
           </>
         }
       >
@@ -496,15 +505,16 @@ export function Topics() {
         </p>
       </Modal>
 
-      {/* 采纳成功 Toast */}
+      {/* Toast */}
       {adoptedToast && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-          background: '#7C3AED', color: '#fff', borderRadius: 8,
+          background: 'var(--accent)', color: '#fff', borderRadius: 'var(--radius-md)',
           padding: '10px 16px', fontSize: 13, fontWeight: 500,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+          boxShadow: 'var(--shadow-lg)',
           display: 'flex', alignItems: 'center', gap: 8,
           pointerEvents: 'none',
+          animation: 'slideRight .18s ease-out',
         }}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2 7l3.5 3.5L12 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>

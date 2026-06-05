@@ -1,20 +1,27 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
 import { useAppStore } from '@/store/appStore'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { StatusBadge } from '@/components/StatusBadge'
-import { PlatformIcon } from '@/components/PlatformIcon'
 import type { VideoStatus } from '@/types'
-import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER } from '@/types'
+import { VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, SHOOTING_FORMAT_LABELS, ALL_SHOOTING_FORMATS } from '@/types'
 import { fromNow, formatDate } from '@/utils/date'
-import { formatNumber, calcEngagement } from '@/utils/format'
 
 export function Dashboard() {
   const navigate = useNavigate()
   const videos = useAppStore(s => s.data?.videos ?? [])
-  const metrics = useAppStore(s => s.data?.metrics ?? [])
   const topics = useAppStore(s => s.data?.topics ?? [])
   const scripts = useAppStore(s => s.data?.scripts ?? [])
+  const tags = useAppStore(s => s.data?.tags ?? [])
+
+  const tooltipStyle = {
+    background: 'var(--bg-overlay)',
+    border: '1px solid var(--border-default)',
+    borderRadius: '8px',
+    color: 'var(--text-primary)',
+    fontSize: '12px',
+  }
 
   const inProgress = useMemo(() =>
     videos.filter(v => v.status === 'filming' || v.status === 'editing'),
@@ -30,53 +37,86 @@ export function Dashboard() {
   }, [videos])
 
   const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
   const thisMonth = videos.filter(v => {
     const d = new Date(v.createdAt)
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
   })
 
-  const recentActivity = useMemo(() => {
-    const events = videos.flatMap(v =>
-      v.statusHistory.map(h => ({ videoTitle: v.title, videoId: v.id, ...h }))
-    )
-    return events.sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, 8)
-  }, [videos])
+  const monthlyPromotionCost = useMemo(() => {
+    return videos.reduce((total, video) => {
+      return total + video.platforms.reduce((sum, platform) => {
+        const cost = platform.promotionCost ?? 0
+        if (cost <= 0) return sum
 
-  const top3 = useMemo(() => {
-    const withEngagement = metrics.map(m => {
-      const video = videos.find(v => v.id === m.videoId)
-      return {
-        ...m,
-        videoTitle: video?.title ?? '未知',
-        videoId: m.videoId,
-        engagement: calcEngagement(m.likes, m.comments, m.shares, m.plays),
-      }
-    })
-    const byVideo: Record<string, typeof withEngagement[0]> = {}
-    withEngagement.forEach(m => {
-      if (!byVideo[m.videoId] || m.engagement > byVideo[m.videoId].engagement) {
-        byVideo[m.videoId] = m
-      }
-    })
-    return Object.values(byVideo).sort((a, b) => b.engagement - a.engagement).slice(0, 3)
-  }, [metrics, videos])
+        const monthSource = platform.publishedAt ?? video.createdAt
+        const date = new Date(monthSource)
+        if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) {
+          return sum
+        }
+
+        return sum + cost
+      }, 0)
+    }, 0)
+  }, [videos, currentMonth, currentYear])
+
+  const formattedMonthlyPromotionCost = new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    maximumFractionDigits: 0,
+  }).format(monthlyPromotionCost)
 
   const pendingTopics = topics.filter(t => t.status === 'inspiration' || t.status === 'adopted')
 
-  const rankColors = ['#FBBF24', '#9CA3AF', '#F97316']
+  const tagDistribution = useMemo(() => {
+    const countMap: Record<string, { name: string; color: string; count: number }> = {}
+    videos.forEach(v => {
+      v.tagIds.forEach(tid => {
+        const tag = tags.find(t => t.id === tid)
+        if (tag) {
+          if (!countMap[tid]) countMap[tid] = { name: tag.name, color: tag.color, count: 0 }
+          countMap[tid].count++
+        }
+      })
+    })
+    return Object.values(countMap).sort((a, b) => b.count - a.count)
+  }, [videos, tags])
+
+  const shootingFormatDistribution = useMemo(() => {
+    const countMap: Record<string, number> = {}
+    videos.forEach(v => {
+      (v.shootingFormats ?? []).forEach(sf => {
+        countMap[sf] = (countMap[sf] || 0) + 1
+      })
+    })
+    return ALL_SHOOTING_FORMATS
+      .map(sf => ({ name: SHOOTING_FORMAT_LABELS[sf], count: countMap[sf] || 0, key: sf }))
+      .filter(d => d.count > 0)
+  }, [videos])
+
+  const pipelineColors: Record<string, string> = {
+    topic: 'var(--status-topic-text)',
+    scripting: 'var(--status-scripting-text)',
+    review: 'var(--status-review-text)',
+    filming: 'var(--status-filming-text)',
+    editing: 'var(--status-editing-text)',
+    published: 'var(--status-published-text)',
+  }
 
   return (
     <PageContainer title="概览" subtitle={`${formatDate(new Date().toISOString())} · ${videos.length} 条视频`}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
+        {/* In-progress banner */}
         {inProgress.length > 0 && (
           <div style={{
-            borderRadius: 12,
-            border: '1px solid var(--accent)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--accent-light)',
             background: 'var(--accent-subtle)',
             padding: 16,
           }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               进行中 · {inProgress.length} 条
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -84,7 +124,14 @@ export function Dashboard() {
                 <div
                   key={v.id}
                   onClick={() => navigate(`/videos/${v.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    cursor: 'pointer', padding: '6px 8px', margin: '0 -8px',
+                    borderRadius: 'var(--radius-sm)',
+                    transition: 'background .1s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                 >
                   <StatusBadge status={v.status} />
                   <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</p>
@@ -96,10 +143,11 @@ export function Dashboard() {
         )}
 
         {/* Stats grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
           {[
             { label: '已发布', value: statusCounts.published, sub: '条视频', accent: true, path: '/videos' },
             { label: '本月新建', value: thisMonth.length, sub: '条视频', accent: false, path: '/kanban' },
+            { label: '本月投放成本', value: formattedMonthlyPromotionCost, sub: '平台投放', accent: false, path: '/videos' },
             { label: '待处理选题', value: pendingTopics.length, sub: '个想法', accent: false, path: '/topics' },
             { label: '逐字稿', value: scripts.length, sub: '篇稿件', accent: false, path: '/scripts' },
           ].map(stat => (
@@ -107,107 +155,114 @@ export function Dashboard() {
               key={stat.label}
               onClick={() => navigate(stat.path)}
               style={{
-                borderRadius: 12,
+                borderRadius: 'var(--radius-lg)',
                 border: '1px solid var(--border-subtle)',
                 background: 'var(--bg-surface)',
-                padding: 16,
+                padding: '16px 18px',
                 textAlign: 'left',
                 cursor: 'pointer',
-                transition: 'border-color .12s',
+                transition: 'border-color .12s, box-shadow .12s',
               }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = 'var(--border-default)'
+                el.style.boxShadow = 'var(--shadow-xs)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement
+                el.style.borderColor = 'var(--border-subtle)'
+                el.style.boxShadow = 'none'
+              }}
             >
-              <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>{stat.label}</p>
-              <p style={{ fontSize: 28, fontWeight: 700, color: stat.accent ? 'var(--accent)' : 'var(--text-primary)', lineHeight: 1 }}>{stat.value}</p>
-              <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>{stat.sub}</p>
+              <p style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)', marginBottom: 6, letterSpacing: '0.03em' }}>{stat.label}</p>
+              <p style={{ fontSize: 28, fontWeight: 700, color: stat.accent ? 'var(--accent)' : 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em' }}>{stat.value}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>{stat.sub}</p>
             </button>
           ))}
         </div>
 
         {/* Pipeline */}
-        <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.07em' }}>内容管道</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {VIDEO_STATUS_ORDER.filter(s => s !== 'archived').map((s, i, arr) => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  onClick={() => navigate('/kanban')}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '5px 10px', borderRadius: 8,
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-elevated)',
-                    cursor: 'pointer',
-                    transition: 'border-color .12s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}
-                >
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{VIDEO_STATUS_LABELS[s]}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{statusCounts[s]}</span>
-                </button>
-                {i < arr.length - 1 && (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M2 5h6M5 2l3 3-3 3" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                )}
-              </div>
-            ))}
+        <div style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 18 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.06em' }}>内容管道</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {VIDEO_STATUS_ORDER.filter(s => s !== 'archived').map((s, i, arr) => {
+              const count = statusCounts[s]
+              const barWidth = Math.max(count > 0 ? (count / Math.max(...Object.values(statusCounts).filter(Boolean), 1)) * 100 : 8, 8)
+              return (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => navigate('/kanban')}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                      padding: '8px 12px', borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-elevated)',
+                      cursor: 'pointer', minWidth: 64,
+                      transition: 'border-color .12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}
+                  >
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{VIDEO_STATUS_LABELS[s]}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: pipelineColors[s], lineHeight: 1, marginTop: 2 }}>{count}</span>
+                    <div style={{
+                      height: 2, borderRadius: 99, marginTop: 4,
+                      background: pipelineColors[s], opacity: 0.5,
+                      width: `${barWidth}%`, minWidth: 16, maxWidth: '100%',
+                      transition: 'width .3s ease',
+                    }} />
+                  </button>
+                  {i < arr.length - 1 && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M3 3l3 3-3 3" stroke="var(--text-tertiary)" strokeWidth="1.2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-          {/* Top performers */}
-          <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 16 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.07em' }}>爆款 Top 3</p>
-            {top3.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '8px 0' }}>录入平台数据后显示</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+          {/* Tag distribution chart */}
+          <div style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 18 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>内容标签构成</p>
+            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 14 }}>各标签覆盖的视频数量，帮助判断内容方向</p>
+            {tagDistribution.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '8px 0' }}>暂无标签数据</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {top3.map((m, idx) => (
-                  <div
-                    key={m.id}
-                    onClick={() => navigate(`/videos/${m.videoId}`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 700, width: 20, color: rankColors[idx] ?? 'var(--text-tertiary)' }}>#{idx + 1}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.videoTitle}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                        <PlatformIcon platform={m.platform} size={12} />
-                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{formatNumber(m.plays)} 播放</span>
-                      </div>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#34D399', flexShrink: 0 }}>{m.engagement}%</span>
-                  </div>
-                ))}
-              </div>
+              <ResponsiveContainer width="100%" height={Math.max(80, tagDistribution.length * 36)}>
+                <BarChart data={tagDistribution} layout="vertical" margin={{ top: 0, right: 16, left: 4, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} width={72} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown) => [`${v} 条`, '视频数']} />
+                  <Bar dataKey="count" name="视频数" radius={[0, 4, 4, 0]}>
+                    {tagDistribution.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
 
-          {/* Recent activity */}
-          <div style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 16 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.07em' }}>最近动态</p>
-            {recentActivity.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '8px 0' }}>暂无动态</p>
+          {/* Shooting format distribution chart */}
+          <div style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', padding: 18 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>拍摄形式分布</p>
+            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 14 }}>各拍摄形式使用频次，辅助判断形式搭配</p>
+            {shootingFormatDistribution.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '8px 0' }}>暂无拍摄形式数据</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {recentActivity.map((event, i) => (
-                  <div
-                    key={i}
-                    onClick={() => navigate(`/videos/${event.videoId}`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                  >
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{event.videoTitle}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>→ {VIDEO_STATUS_LABELS[event.status]}</span>
-                    </div>
-                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 }}>{fromNow(event.changedAt)}</span>
-                  </div>
-                ))}
-              </div>
+              <ResponsiveContainer width="100%" height={Math.max(80, shootingFormatDistribution.length * 36)}>
+                <BarChart data={shootingFormatDistribution} layout="vertical" margin={{ top: 0, right: 16, left: 4, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} width={72} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: unknown) => [`${v} 条`, '视频数']} />
+                  <Bar dataKey="count" name="视频数" fill="var(--accent)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>

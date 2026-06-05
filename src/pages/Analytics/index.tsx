@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useAppStore } from '@/store/appStore'
 import { PageContainer } from '@/components/layout/PageContainer'
-import type { DouyinRawRecord, ShipinhaoRawRecord } from '@/types'
+import type { DouyinRawRecord, ShipinhaoRawRecord, XiaohongshuRawRecord } from '@/types'
 
-type Platform = 'douyin' | 'shipinhao'
+type Platform = 'douyin' | 'shipinhao' | 'xiaohongshu'
 
 // ===== 排序工具 =====
 type SortDir = 'asc' | 'desc'
@@ -101,6 +101,7 @@ function TextCell({ value, maxWidth = 240 }: { value: string; maxWidth?: number 
 // ===== 抖音数据表格 =====
 function DouyinTable({ records }: { records: DouyinRawRecord[] }) {
   const { sorted, sortKey, sortDir, toggle } = useSortable(records, 'plays')
+  const deleteDouyinRecord = useAppStore(s => s.deleteDouyinRecord)
 
   const thProps = (key: string, label: string, numeric = false) => ({
     label, sortKey: key, currentKey: sortKey as string, dir: sortDir,
@@ -129,6 +130,7 @@ function DouyinTable({ records }: { records: DouyinRawRecord[] }) {
             <Th {...thProps('saves', '收藏', true)} />
             <Th {...thProps('profileVisits', '主页访问', true)} />
             <Th {...thProps('followerGain', '粉丝增量', true)} />
+            <th style={{ padding: '8px 12px', width: 40, borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)', position: 'sticky', top: 0, zIndex: 1 }} />
           </tr>
         </thead>
         <tbody>
@@ -153,6 +155,9 @@ function DouyinTable({ records }: { records: DouyinRawRecord[] }) {
               <NumCell value={row.saves} />
               <NumCell value={row.profileVisits} />
               <NumCell value={row.followerGain} />
+              <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                <DeleteBtn onClick={() => deleteDouyinRecord(row.id)} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -164,6 +169,7 @@ function DouyinTable({ records }: { records: DouyinRawRecord[] }) {
 // ===== 视频号数据表格 =====
 function ShipinhaoTable({ records }: { records: ShipinhaoRawRecord[] }) {
   const { sorted, sortKey, sortDir, toggle } = useSortable(records, 'plays')
+  const deleteShipinhaoRecord = useAppStore(s => s.deleteShipinhaoRecord)
 
   const thProps = (key: string, label: string, numeric = false) => ({
     label, sortKey: key, currentKey: sortKey as string, dir: sortDir,
@@ -191,6 +197,7 @@ function ShipinhaoTable({ records }: { records: ShipinhaoRawRecord[] }) {
             <Th {...thProps('setRingtone', '设为铃声', true)} />
             <Th {...thProps('setStatus', '设为状态', true)} />
             <Th {...thProps('setMomentCover', '朋友圈封面', true)} />
+            <th style={{ padding: '8px 12px', width: 40, borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)', position: 'sticky', top: 0, zIndex: 1 }} />
           </tr>
         </thead>
         <tbody>
@@ -215,6 +222,75 @@ function ShipinhaoTable({ records }: { records: ShipinhaoRawRecord[] }) {
               <NumCell value={row.setRingtone} />
               <NumCell value={row.setStatus} />
               <NumCell value={row.setMomentCover} />
+              <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                <DeleteBtn onClick={() => deleteShipinhaoRecord(row.id)} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ===== 小红书数据表格 =====
+function XiaohongshuTable({ records }: { records: XiaohongshuRawRecord[] }) {
+  const { sorted, sortKey, sortDir, toggle } = useSortable(records, 'impressions')
+  const deleteXiaohongshuRecord = useAppStore(s => s.deleteXiaohongshuRecord)
+
+  const thProps = (key: string, label: string, numeric = false) => ({
+    label, sortKey: key, currentKey: sortKey as string, dir: sortDir,
+    onSort: toggle as (k: string) => void, numeric,
+  })
+
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
+  const sec = (v: number) => `${v.toFixed(0)}s`
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+        <thead>
+          <tr>
+            <Th {...thProps('title', '笔记标题')} />
+            <Th {...thProps('publishedAt', '发布时间')} />
+            <Th {...thProps('genre', '体裁')} />
+            <Th {...thProps('impressions', '曝光', true)} />
+            <Th {...thProps('views', '观看量', true)} />
+            <Th {...thProps('coverCtr', '封面点击率', true)} />
+            <Th {...thProps('avgWatchDuration', '人均观看时长', true)} />
+            <Th {...thProps('likes', '点赞', true)} />
+            <Th {...thProps('comments', '评论', true)} />
+            <Th {...thProps('saves', '收藏', true)} />
+            <Th {...thProps('shares', '分享', true)} />
+            <Th {...thProps('follows', '涨粉', true)} />
+            <Th {...thProps('danmaku', '弹幕', true)} />
+            <th style={{ padding: '8px 12px', width: 40, borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)', position: 'sticky', top: 0, zIndex: 1 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row, i) => (
+            <tr
+              key={row.id}
+              style={{ background: i % 2 === 0 ? 'var(--bg-surface)' : 'var(--bg-elevated)' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'var(--bg-surface)' : 'var(--bg-elevated)'}
+            >
+              <TextCell value={row.title} />
+              <TextCell value={row.publishedAt.slice(0, 10)} maxWidth={100} />
+              <TextCell value={row.genre} maxWidth={60} />
+              <NumCell value={row.impressions} />
+              <NumCell value={row.views} />
+              <NumCell value={row.coverCtr} format={pct} />
+              <NumCell value={row.avgWatchDuration} format={sec} />
+              <NumCell value={row.likes} />
+              <NumCell value={row.comments} />
+              <NumCell value={row.saves} />
+              <NumCell value={row.shares} />
+              <NumCell value={row.follows} />
+              <NumCell value={row.danmaku} />
+              <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                <DeleteBtn onClick={() => deleteXiaohongshuRecord(row.id)} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -227,14 +303,16 @@ function ShipinhaoTable({ records }: { records: ShipinhaoRawRecord[] }) {
 export function Analytics() {
   const douyinRecords = useAppStore(s => s.data?.douyinRecords ?? [])
   const shipinhaoRecords = useAppStore(s => s.data?.shipinhaoRecords ?? [])
+  const xiaohongshuRecords = useAppStore(s => s.data?.xiaohongshuRecords ?? [])
   const [platform, setPlatform] = useState<Platform>('douyin')
 
   const tabs: { id: Platform; label: string; count: number }[] = [
     { id: 'douyin', label: '抖音', count: douyinRecords.length },
     { id: 'shipinhao', label: '视频号', count: shipinhaoRecords.length },
+    { id: 'xiaohongshu', label: '小红书', count: xiaohongshuRecords.length },
   ]
 
-  const totalRecords = douyinRecords.length + shipinhaoRecords.length
+  const totalRecords = douyinRecords.length + shipinhaoRecords.length + xiaohongshuRecords.length
 
   return (
     <PageContainer title="数据分析" subtitle={`${totalRecords} 条记录`}>
@@ -282,8 +360,43 @@ export function Analytics() {
             ? <EmptyHint platform="视频号" />
             : <ShipinhaoTable records={shipinhaoRecords} />
         )}
+        {platform === 'xiaohongshu' && (
+          xiaohongshuRecords.length === 0
+            ? <EmptyHint platform="小红书" />
+            : <XiaohongshuTable records={xiaohongshuRecords} />
+        )}
       </div>
     </PageContainer>
+  )
+}
+
+function DeleteBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="删除此条记录"
+      style={{
+        width: 26, height: 26, borderRadius: 6,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        border: 'none', background: 'transparent',
+        color: 'var(--text-tertiary)', cursor: 'pointer',
+        transition: 'all .12s',
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'
+        ;(e.currentTarget as HTMLElement).style.color = 'var(--danger)'
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.background = 'transparent'
+        ;(e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2 4h12"/>
+        <path d="M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4"/>
+        <path d="M3.333 4v9.333A1.333 1.333 0 0 0 4.667 14.667h6.666a1.333 1.333 0 0 0 1.334-1.334V4"/>
+      </svg>
+    </button>
   )
 }
 

@@ -53,7 +53,16 @@ export function TransitionChecklistDialog({
   }
 
   const hexToRgb = (color: string) => {
-    if (color.startsWith('var(')) return '99,102,241'
+    if (color.startsWith('var(')) {
+      const known: Record<string, string> = {
+        'var(--accent)':             '124,88,237',
+        'var(--accent-secondary)':   '59,130,246',
+        'var(--status-filming-text)': '251,146,60',
+        'var(--status-editing-text)': '167,139,250',
+        'var(--status-review-text)': '251,191,36',
+      }
+      return known[color] ?? '124,88,237'
+    }
     const hex = color.replace('#', '')
     if (hex.length === 6) {
       const r = parseInt(hex.slice(0, 2), 16)
@@ -61,7 +70,7 @@ export function TransitionChecklistDialog({
       const b = parseInt(hex.slice(4, 6), 16)
       return `${r},${g},${b}`
     }
-    return '99,102,241'
+    return '124,88,237'
   }
 
   const rgb = hexToRgb(accentColor)

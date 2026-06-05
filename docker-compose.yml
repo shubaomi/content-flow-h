@@ -5,10 +5,15 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "5174:5174"
+      - "3001:3001"
     volumes:
       - .:/app
       - /app/node_modules
+      - ${HOME}/.claude/skills:/skills:ro
+    env_file:
+      - .env
     environment:
       - NODE_ENV=development
+      - SKILLS_DIR=/skills/content-risk-detector/references
     stdin_open: true
     tty: true

@@ -14,13 +14,13 @@ export function PageContainer({ title, subtitle, actions, children, noPadding }:
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 24px',
+        padding: '14px 24px',
         borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--bg-surface)',
         flexShrink: 0,
       }}>
         <div>
-          <h1 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h1>
+          <h1 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{title}</h1>
           {subtitle && <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>{subtitle}</p>}
         </div>
         {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{actions}</div>}

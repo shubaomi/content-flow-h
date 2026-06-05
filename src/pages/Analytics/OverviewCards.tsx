@@ -49,19 +49,19 @@ export function OverviewCards({ stats }: Props) {
         label="平均完播率"
         value={avgCompletionRate != null ? `${avgCompletionRate.toFixed(1)}%` : '—'}
         sub={avgCompletionRate != null ? '有完播率记录' : '尚无完播率数据'}
-        valueColor={avgCompletionRate != null ? (avgCompletionRate >= 40 ? '#34D399' : avgCompletionRate >= 20 ? '#60A5FA' : 'var(--text-primary)') : undefined}
+        valueColor={avgCompletionRate != null ? (avgCompletionRate >= 40 ? 'var(--success)' : avgCompletionRate >= 20 ? 'var(--info)' : 'var(--text-primary)') : undefined}
       />
       <StatCard
         label="平均互动率"
         value={`${(avgEngagement * 100).toFixed(2)}%`}
         sub="平台差异化算法"
-        valueColor={avgEngagement >= 0.1 ? '#34D399' : avgEngagement >= 0.05 ? '#60A5FA' : undefined}
+        valueColor={avgEngagement >= 0.1 ? 'var(--success)' : avgEngagement >= 0.05 ? 'var(--info)' : undefined}
       />
       <StatCard
         label="爆款视频数"
         value={viralCount.toString()}
         sub="综合评分 ≥ 80"
-        valueColor={viralCount > 0 ? '#FBBF24' : undefined}
+        valueColor={viralCount > 0 ? 'var(--warning)' : undefined}
       />
       <StatCard
         label="本月新高"

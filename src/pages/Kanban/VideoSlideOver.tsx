@@ -21,6 +21,8 @@ export function VideoSlideOver({ video, onClose }: Props) {
   const moveVideo = useAppStore(s => s.moveVideo)
   const tags = useAppStore(s => s.data?.tags ?? [])
   const scripts = useAppStore(s => s.data?.scripts ?? [])
+  const allVideos = useAppStore(s => s.data?.videos ?? [])
+  const videoRelations = useAppStore(s => s.data?.videoRelations ?? [])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -39,6 +41,15 @@ export function VideoSlideOver({ video, onClose }: Props) {
   const script = scripts.find(s => s.id === video.scriptId)
   const idx = VIDEO_STATUS_ORDER.indexOf(video.status)
   const nextStatus = idx < VIDEO_STATUS_ORDER.length - 2 ? VIDEO_STATUS_ORDER[idx + 1] : null
+  const relatedVideos = videoRelations
+    .filter(r => r.fromVideoId === video.id || r.toVideoId === video.id)
+    .map(relation => {
+      const relatedVideoId = relation.fromVideoId === video.id ? relation.toVideoId : relation.fromVideoId
+      const relatedVideo = allVideos.find(v => v.id === relatedVideoId)
+      return relatedVideo ? { relation, video: relatedVideo } : null
+    })
+    .filter(item => item !== null)
+    .slice(0, 2)
 
   return (
     <>
@@ -186,6 +197,38 @@ export function VideoSlideOver({ video, onClose }: Props) {
             </div>
           )}
 
+          {relatedVideos.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <Label>相关视频</Label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {relatedVideos.map(({ relation, video: relatedVideo }) => (
+                  <button
+                    key={relation.id}
+                    onClick={() => navigate(`/videos/${relatedVideo.id}`)}
+                    style={{
+                      width: '100%', padding: '9px 10px', borderRadius: 8,
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--bg-elevated)',
+                      cursor: 'pointer', textAlign: 'left',
+                      transition: 'border-color .12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}
+                  >
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                      {relatedVideo.title}
+                    </p>
+                    {relation.note && (
+                      <p style={{ marginTop: 3, fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+                        {relation.note.slice(0, 42)}{relation.note.length > 42 ? '…' : ''}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <Label>进度记录</Label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -281,9 +324,9 @@ export function VideoSlideOver({ video, onClose }: Props) {
         title="确认推进到「拍摄中」"
         description="请确认以下内容均已通过审核，方可推进至拍摄阶段。"
         confirmLabel="已确认，推进拍摄"
-        accentColor="#f97316"
+        accentColor="var(--status-filming-text)"
         iconSvg={
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--status-filming-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             <polyline points="9 12 11 14 15 10"/>
           </svg>
@@ -314,9 +357,9 @@ export function VideoSlideOver({ video, onClose }: Props) {
         title="确认推进到「剪辑中」"
         description="进入剪辑前，请确认以下检查项均已完成。"
         confirmLabel="确认，进入剪辑"
-        accentColor="#8b5cf6"
+        accentColor="var(--status-editing-text)"
         iconSvg={
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--status-editing-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="6" cy="6" r="3"/>
             <circle cx="6" cy="18" r="3"/>
             <line x1="20" y1="4" x2="8.12" y2="15.88"/>

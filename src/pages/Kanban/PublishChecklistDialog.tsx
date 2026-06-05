@@ -52,14 +52,14 @@ export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }
             disabled={!allChecked}
             style={{
               padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: allChecked ? '#10b981' : 'var(--bg-elevated)',
+              background: allChecked ? 'var(--success)' : 'var(--bg-elevated)',
               color: allChecked ? '#fff' : 'var(--text-tertiary)',
               border: allChecked ? 'none' : '1px solid var(--border-default)',
               cursor: allChecked ? 'pointer' : 'not-allowed',
               transition: 'background .15s, color .15s',
             }}
-            onMouseEnter={e => { if (allChecked) (e.currentTarget as HTMLElement).style.background = '#059669' }}
-            onMouseLeave={e => { if (allChecked) (e.currentTarget as HTMLElement).style.background = '#10b981' }}
+            onMouseEnter={e => { if (allChecked) (e.currentTarget as HTMLElement).style.background = 'var(--success-hover)' }}
+            onMouseLeave={e => { if (allChecked) (e.currentTarget as HTMLElement).style.background = 'var(--success)' }}
           >
             确认发布
           </button>
@@ -76,7 +76,7 @@ export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             marginBottom: 14,
           }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
               <polyline points="9 12 11 14 15 10"/>
             </svg>
@@ -126,8 +126,8 @@ export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }
                 {/* 自定义复选框 */}
                 <div style={{
                   width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                  border: `2px solid ${isChecked ? '#10b981' : 'var(--border-default)'}`,
-                  background: isChecked ? '#10b981' : 'transparent',
+                  border: `2px solid ${isChecked ? 'var(--success)' : 'var(--border-default)'}`,
+                  background: isChecked ? 'var(--success)' : 'transparent',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background .12s, border-color .12s',
                 }}>
@@ -140,7 +140,7 @@ export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }
                 {/* 序号 + 文字 */}
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                   <span style={{
-                    fontSize: 11, fontWeight: 700, color: isChecked ? '#10b981' : 'var(--text-tertiary)',
+                    fontSize: 11, fontWeight: 700, color: isChecked ? 'var(--success)' : 'var(--text-tertiary)',
                     minWidth: 16, transition: 'color .12s',
                   }}>
                     {i + 1}
@@ -166,10 +166,10 @@ export function PublishChecklistDialog({ open, videoTitle, onConfirm, onCancel }
             border: '1px solid rgba(16,185,129,0.25)',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            <p style={{ fontSize: 12, color: '#10b981', margin: 0, lineHeight: 1.4 }}>
+            <p style={{ fontSize: 12, color: 'var(--success)', margin: 0, lineHeight: 1.4 }}>
               所有检查项已完成，可以发布。
             </p>
           </div>

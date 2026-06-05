@@ -31,7 +31,12 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       {/* Backdrop */}
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+      }} onClick={onClose} />
 
       {/* Panel */}
       <div
@@ -39,9 +44,9 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
           position: 'relative', width: '100%', maxWidth: WIDTHS[size],
           background: 'var(--bg-overlay)',
           border: '1px solid var(--border-default)',
-          borderRadius: 14,
+          borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--shadow-xl)',
-          animation: 'scaleIn .16s ease-out',
+          animation: 'scaleIn .14s ease-out',
         }}
       >
         {title && (
@@ -50,17 +55,25 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
             padding: '16px 20px',
             borderBottom: '1px solid var(--border-subtle)',
           }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{title}</h2>
             <button
               onClick={onClose}
               style={{
                 width: 26, height: 26, borderRadius: 6, border: 'none',
                 background: 'transparent', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-tertiary)',
+                color: 'var(--text-tertiary)', transition: 'background .1s, color .1s',
               }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+              onMouseEnter={e => {
+                const el = e.currentTarget
+                el.style.background = 'var(--bg-hover)'
+                el.style.color = 'var(--text-primary)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget
+                el.style.background = 'transparent'
+                el.style.color = 'var(--text-tertiary)'
+              }}
             >
               <svg width="13" height="13" fill="none" viewBox="0 0 13 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <line x1="1" y1="1" x2="12" y2="12"/><line x1="12" y1="1" x2="1" y2="12"/>
