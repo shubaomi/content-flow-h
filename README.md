@@ -47,6 +47,9 @@ npm install
 # 启动开发服务器（前端 5174 + 后端 3001）
 npm run dev
 
+# Windows 双击启动脚本
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
+
 # 仅前端
 npx vite
 
