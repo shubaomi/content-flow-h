@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { branding } from '@/config/branding'
 import { useAppStore } from '@/store/appStore'
 
 const NAV = [
@@ -71,7 +72,7 @@ export function Sidebar() {
               fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
               letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              起哥的AI实战
+              {branding.appName}
             </div>
             {(saveError || saving) && (
               <div style={{

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { branding } from '@/config/branding'
 import { pickDirectory, isFileSystemSupported, isSecureContext } from '@/services/fileSystem'
 import { useAppStore } from '@/store/appStore'
 
@@ -56,15 +57,15 @@ export function DirectorySetup() {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>起哥的AI实战</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{branding.appName}</h1>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 32, lineHeight: 1.7 }}>
-          选择一个本地文件夹作为数据目录，<br />
-          您的所有数据将安全地存储在本地。
+          {branding.appSubtitle}<br />
+          {branding.localDataDescription}
         </p>
 
         {/* Steps */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, textAlign: 'left' }}>
-          {['选择或新建一个专属的本地文件夹', '所有数据以 JSON 和 Markdown 格式保存', '随时备份、迁移，完全掌控'].map((text, i) => (
+          {branding.localDataSteps.map((text, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 24, height: 24, borderRadius: '50%',

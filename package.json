@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "concurrently -n server,vite -c blue,green \"npm run dev:server\" \"vite\"",
     "dev:server": "tsx server/index.ts",
-    "build": "tsc -b && vite build",
+    "check:branding": "node scripts/check-branding.mjs",
+    "build": "npm run check:branding && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "docker:dev": "docker compose up",
