@@ -1,7 +1,7 @@
 param(
   [int]$FrontendPort = 5174,
   [int]$ApiPort = 3001,
-  [string]$HostName = "127.0.0.1",
+  [string]$HostName = "localhost",
   [int]$RequiredNodeMajor = 22,
   [switch]$NoBrowser,
   [switch]$CheckOnly

@@ -50,6 +50,9 @@ npm run dev
 # Windows 双击启动脚本
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 
+# Keep using http://localhost:5174. Browser directory permission is saved per origin,
+# so switching between localhost, 127.0.0.1, and LAN IP may require choosing the data directory again.
+
 # 仅前端
 npx vite
 
