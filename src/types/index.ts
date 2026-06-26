@@ -121,6 +121,53 @@ export interface Script {
   updatedAt: string
 }
 
+export interface ContentFlowImportPayload {
+  topicTitle: string
+  videoTitle: string
+  videoDescription?: string
+  scriptMarkdown: string
+  thumbnailNote?: string
+  notes?: string
+  shootingFormats: ShootingFormat[]
+}
+
+export interface ContentFlowStateSnapshot {
+  schemaVersion: '1.0'
+  source: 'content-flow-h'
+  generatedAt: string
+  summary: {
+    readyToRecordCount: number
+    scriptingCount: number
+    editingCount: number
+    publishedLast7Days: number
+  }
+  activeVideos: Array<{
+    id: string
+    title: string
+    status: VideoStatus
+    topicId?: string
+    scriptId?: string
+    nextAction: string
+    shootingFormats: ShootingFormat[]
+    platforms: Platform[]
+    updatedAt: string
+  }>
+  stuckItems: Array<{
+    id: string
+    title: string
+    status: VideoStatus
+    nextAction: string
+    updatedAt: string
+  }>
+  recentlyPublished: Array<{
+    id: string
+    title: string
+    publishedAt?: string
+    platforms: Platform[]
+    updatedAt: string
+  }>
+}
+
 export interface VideoMetrics {
   id: string
   videoId: string

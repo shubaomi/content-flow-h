@@ -19,7 +19,6 @@ export function ScriptEditor({ content, onChange, highlightRange }: ScriptEditor
     // 滚动到选区可见：将光标位置滚动到可视区域
     // 通过临时设置 scrollTop 近似实现
     const lineHeight = 25.2 // 14px * 1.8
-    const paddingTop = 24
     const estimatedLine = Math.floor(highlightRange.start / 40) // 粗略估算每行40字符
     const estimatedScroll = Math.max(0, estimatedLine * lineHeight - 100)
     ta.scrollTop = estimatedScroll

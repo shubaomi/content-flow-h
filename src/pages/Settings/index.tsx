@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { clearStoredHandle, pickDirectory, isSecureContext, isFileSystemSupported } from '@/services/fileSystem'
+import { buildContentFlowSnapshot, parseContentFlowImport } from '@/services/contentVault'
 import type { Tag, ChecklistItem, TransitionKey, AppSettings } from '@/types'
 
 export function Settings() {
@@ -17,6 +18,7 @@ export function Settings() {
   const updateTag = useAppStore(s => s.updateTag)
   const deleteTag = useAppStore(s => s.deleteTag)
   const loadData = useAppStore(s => s.loadData)
+  const importProductionBrief = useAppStore(s => s.importProductionBrief)
 
   const checklistItems = data?.checklistItems ?? []
   const addChecklistItem = useAppStore(s => s.addChecklistItem)
@@ -35,6 +37,10 @@ export function Settings() {
   const [transitionModal, setTransitionModal] = useState<{ key: TransitionKey; mode: 'new' | 'edit'; item?: ChecklistItem } | null>(null)
   const [transitionText, setTransitionText] = useState('')
   const [reconnecting, setReconnecting] = useState(false)
+  const [briefJson, setBriefJson] = useState('')
+  const [briefImportMessage, setBriefImportMessage] = useState('')
+  const [snapshotMessage, setSnapshotMessage] = useState('')
+  const [importingBrief, setImportingBrief] = useState(false)
 
   type ReasonField = 'violationReasons' | 'skipReasons'
   const [reasonModal, setReasonModal] = useState<{ field: ReasonField; mode: 'new' | 'edit'; index?: number } | null>(null)
@@ -114,6 +120,52 @@ export function Settings() {
     a.download = `ip_content_backup_${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleImportBrief = async () => {
+    setBriefImportMessage('')
+    setImportingBrief(true)
+    try {
+      const payload = parseContentFlowImport(JSON.parse(briefJson))
+      const result = await importProductionBrief(payload)
+      setBriefImportMessage(`已导入：视频 ${result.videoId}，脚本 ${result.scriptId}`)
+      setBriefJson('')
+    } catch (error) {
+      setBriefImportMessage(error instanceof Error ? error.message : '导入失败')
+    } finally {
+      setImportingBrief(false)
+    }
+  }
+
+  const getSnapshotJson = () => {
+    if (!data) throw new Error('暂无数据')
+    return JSON.stringify(buildContentFlowSnapshot(data), null, 2)
+  }
+
+  const handleCopySnapshot = async () => {
+    setSnapshotMessage('')
+    try {
+      await navigator.clipboard.writeText(getSnapshotJson())
+      setSnapshotMessage('已复制 contentflow-active.json')
+    } catch (error) {
+      setSnapshotMessage(error instanceof Error ? error.message : '复制失败')
+    }
+  }
+
+  const handleDownloadSnapshot = () => {
+    setSnapshotMessage('')
+    try {
+      const blob = new Blob([getSnapshotJson()], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'contentflow-active.json'
+      a.click()
+      URL.revokeObjectURL(url)
+      setSnapshotMessage('已下载 contentflow-active.json')
+    } catch (error) {
+      setSnapshotMessage(error instanceof Error ? error.message : '导出失败')
+    }
   }
 
   const handleReconnect = async () => {
@@ -301,6 +353,60 @@ export function Settings() {
                   {item.action}
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section>
+            {sectionTitle('Content Vault')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{
+                padding: 16, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
+                display: 'flex', flexDirection: 'column', gap: 12,
+              }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>导入 Psychelog 生产简报</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>粘贴 production brief 或 contentFlowImport JSON，创建选题、视频和脚本。</p>
+                </div>
+                <textarea
+                  value={briefJson}
+                  onChange={event => setBriefJson(event.target.value)}
+                  placeholder='{"contentFlowImport": {...}}'
+                  style={{
+                    minHeight: 150,
+                    width: '100%',
+                    resize: 'vertical',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    background: 'var(--bg-base)',
+                    color: 'var(--text-primary)',
+                    padding: 12,
+                    fontFamily: 'ui-monospace, SF Mono, monospace',
+                    fontSize: 12,
+                    lineHeight: 1.6,
+                  }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontSize: 12, color: briefImportMessage.includes('失败') || briefImportMessage.includes('缺少') ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+                    {briefImportMessage}
+                  </span>
+                  <Button variant="secondary" size="sm" loading={importingBrief} disabled={!briefJson.trim()} onClick={() => void handleImportBrief()}>导入</Button>
+                </div>
+              </div>
+
+              <div style={{
+                padding: 16, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>导出生产状态快照</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>生成可写入 vault 的 state/contentflow-active.json。</p>
+                  {snapshotMessage ? <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>{snapshotMessage}</p> : null}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button variant="secondary" size="sm" onClick={() => void handleCopySnapshot()}>复制</Button>
+                  <Button variant="secondary" size="sm" onClick={handleDownloadSnapshot}>下载</Button>
+                </div>
+              </div>
             </div>
           </section>
 

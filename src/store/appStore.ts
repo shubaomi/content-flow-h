@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { AppData, Video, Topic, Script, Tag, VideoMetrics, AppSettings, VideoStatus, Platform, PlatformPublish, TransitionKey, DouyinRawRecord, ShipinhaoRawRecord, XiaohongshuRawRecord, VideoRelation } from '@/types'
+import type { AppData, Video, Topic, Script, Tag, VideoMetrics, AppSettings, VideoStatus, Platform, PlatformPublish, TransitionKey, DouyinRawRecord, ShipinhaoRawRecord, XiaohongshuRawRecord, VideoRelation, ContentFlowImportPayload } from '@/types'
 import { now } from '@/utils/date'
 import { videoId, topicId, scriptId, tagId, metricId, checklistItemId, videoRelationId } from '@/utils/id'
-import { readAppData, writeAppData } from '@/services/fileSystem'
+import { readAppData, writeAppData, writeScriptContent } from '@/services/fileSystem'
 
 interface AppState {
   data: AppData | null
@@ -14,6 +14,7 @@ interface AppState {
   // Lifecycle
   loadData: () => Promise<void>
   saveData: () => Promise<void>
+  importProductionBrief: (payload: ContentFlowImportPayload) => Promise<{ topicId: string; videoId: string; scriptId: string }>
 
   // Videos
   addVideo: (v: Omit<Video, 'id' | 'statusHistory' | 'createdAt' | 'updatedAt'>) => void
@@ -194,6 +195,66 @@ export const useAppStore = create<AppState>()(
       } finally {
         set(s => { s.saving = false })
       }
+    },
+
+    importProductionBrief: async (payload) => {
+      const data = get().data
+      if (!data) throw new Error('请先选择数据目录')
+
+      const timestamp = now()
+      const tid = topicId()
+      const vid = videoId()
+      const sid = scriptId()
+      const wordCount = payload.scriptMarkdown.replace(/\s+/g, '').length
+      const status: VideoStatus = payload.scriptMarkdown.trim() ? 'review' : 'scripting'
+
+      await writeScriptContent(sid, payload.scriptMarkdown)
+
+      set(s => {
+        if (!s.data) return
+        s.data.topics.push({
+          id: tid,
+          title: payload.topicTitle,
+          description: payload.videoDescription,
+          status: 'in_progress',
+          tagIds: [],
+          inspiration: payload.notes,
+          linkedVideoId: vid,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        s.data.videos.push({
+          id: vid,
+          title: payload.videoTitle,
+          status,
+          tagIds: [],
+          shootingFormats: payload.shootingFormats,
+          scriptId: sid,
+          topicId: tid,
+          statusHistory: [{ status, changedAt: timestamp }],
+          platforms: [],
+          thumbnailNote: payload.thumbnailNote,
+          description: payload.videoDescription,
+          notes: payload.notes,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        s.data.scripts.push({
+          id: sid,
+          videoId: vid,
+          topicId: tid,
+          title: payload.videoTitle,
+          wordCount,
+          estimatedDuration: Math.round(wordCount / 3.5),
+          tagIds: [],
+          version: 1,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+      })
+      await get().saveData()
+
+      return { topicId: tid, videoId: vid, scriptId: sid }
     },
 
     // ---- Videos ----
