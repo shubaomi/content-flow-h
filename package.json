@@ -13,7 +13,8 @@
     "docker:dev": "docker compose up",
     "docker:dev:build": "docker compose up --build",
     "docker:down": "docker compose down",
-    "docker:clean": "docker compose down -v"
+    "docker:clean": "docker compose down -v",
+    "vault:import-packet": "node scripts/import-vault-packet.mjs"
   },
   "dependencies": {
     "@codemirror/basic-setup": "^0.20.0",

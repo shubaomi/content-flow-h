@@ -60,6 +60,24 @@ npx vite
 npm run dev:server
 ```
 
+### 从内容 vault 导入每日内容包
+
+Psychelog 每天会把可导入的内容包写入 `hongrun-content-vault/contentflow-import/YYYY-MM-DD.json`。ContentFlow 可以继续在设置页粘贴 JSON 导入，也可以用脚本直接导入本地数据目录：
+
+```powershell
+$env:CONTENTFLOW_DATA_DIR="E:\Projects\contentflow-data"
+$env:HONGRUN_CONTENT_VAULT_DIR="E:\Projects\hongrun-content-vault"
+npm run vault:import-packet
+```
+
+指定日期：
+
+```powershell
+npm run vault:import-packet -- --date 2026-06-27
+```
+
+脚本会创建或更新对应的选题、视频和口播稿，并在备注中写入 `vault-import:*` 标记，重复执行不会生成重复视频。
+
 ### 内容合规检测
 
 风险检测需要 DeepSeek API Key。在项目根目录创建 `.env` 文件：
