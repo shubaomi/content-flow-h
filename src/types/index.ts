@@ -129,6 +129,14 @@ export interface ContentFlowImportPayload {
   thumbnailNote?: string
   notes?: string
   shootingFormats: ShootingFormat[]
+  commercialIntent?: {
+    stage?: string
+    targetAudience?: string
+    audiencePain?: string
+    businessHypothesis?: string
+    cta?: string
+    relatedOffer?: string
+  }
 }
 
 export interface ContentFlowStateSnapshot {

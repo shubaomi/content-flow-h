@@ -15,6 +15,7 @@ const activeStatuses = new Set<VideoStatus>(['topic', 'scripting', 'review', 'fi
 export function parseContentFlowImport(input: unknown): ContentFlowImportPayload {
   const source = readRecord(input)
   const payload = readRecord(source.contentFlowImport ?? source)
+  const commercialIntent = readCommercialIntent(payload.commercialIntent ?? source.commercialIntent)
   const topicTitle = readRequiredString(payload, 'topicTitle')
   const videoTitle = readRequiredString(payload, 'videoTitle')
   const scriptMarkdown = readRequiredString(payload, 'scriptMarkdown')
@@ -26,8 +27,9 @@ export function parseContentFlowImport(input: unknown): ContentFlowImportPayload
     videoDescription: readOptionalString(payload, 'videoDescription'),
     scriptMarkdown,
     thumbnailNote: readOptionalString(payload, 'thumbnailNote'),
-    notes: readOptionalString(payload, 'notes'),
+    notes: appendCommercialIntentNote(readOptionalString(payload, 'notes'), commercialIntent),
     shootingFormats,
+    commercialIntent,
   }
 }
 
@@ -93,6 +95,39 @@ function readRequiredString(record: Record<string, unknown>, key: string): strin
 function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
   const value = record[key]
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function readCommercialIntent(value: unknown): ContentFlowImportPayload['commercialIntent'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  const intent = {
+    stage: readStringValue(record.stage),
+    targetAudience: readStringValue(record.targetAudience),
+    audiencePain: readStringValue(record.audiencePain),
+    businessHypothesis: readStringValue(record.businessHypothesis),
+    cta: readStringValue(record.cta),
+    relatedOffer: readStringValue(record.relatedOffer),
+  }
+  return Object.values(intent).some(Boolean) ? intent : undefined
+}
+
+function readStringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function appendCommercialIntentNote(notes: string | undefined, intent: ContentFlowImportPayload['commercialIntent']): string | undefined {
+  const text = String(notes || '').trim()
+  if (!intent || text.includes('商业意图:')) return text || undefined
+  const block = [
+    '商业意图:',
+    intent.stage ? `- 阶段: ${intent.stage}` : '',
+    intent.targetAudience ? `- 目标人群: ${intent.targetAudience}` : '',
+    intent.audiencePain ? `- 痛点: ${intent.audiencePain}` : '',
+    intent.businessHypothesis ? `- 假设: ${intent.businessHypothesis}` : '',
+    intent.cta ? `- CTA: ${intent.cta}` : '',
+    intent.relatedOffer ? `- 关联产品/服务: ${intent.relatedOffer}` : '',
+  ].filter(Boolean).join('\n')
+  return [text, block].filter(Boolean).join('\n\n')
 }
 
 function readShootingFormats(value: unknown): ShootingFormat[] {

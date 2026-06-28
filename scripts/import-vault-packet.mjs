@@ -22,7 +22,7 @@ const inputPath = args.input
 const importRelativePath = args.input
   ? path.relative(vaultDir || process.cwd(), inputPath).replaceAll(path.sep, "/")
   : `contentflow-import/${date}.json`;
-const payload = parseContentFlowImport(JSON.parse(await readFile(inputPath, "utf8")));
+const payload = parseContentFlowImport(parseJsonText(await readFile(inputPath, "utf8")));
 const result = await importPacket({ dataDir, payload, importRelativePath });
 
 console.log(JSON.stringify({
@@ -154,14 +154,16 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
 function parseContentFlowImport(input) {
   const source = readRecord(input);
   const payload = readRecord(source.contentFlowImport ?? source);
+  const commercialIntent = readCommercialIntent(payload.commercialIntent ?? source.commercialIntent);
   return {
     topicTitle: readRequiredString(payload, "topicTitle"),
     videoTitle: readRequiredString(payload, "videoTitle"),
     videoDescription: readOptionalString(payload, "videoDescription"),
     scriptMarkdown: readRequiredString(payload, "scriptMarkdown"),
     thumbnailNote: readOptionalString(payload, "thumbnailNote"),
-    notes: readOptionalString(payload, "notes"),
+    notes: appendCommercialIntentNote(readOptionalString(payload, "notes"), commercialIntent),
     shootingFormats: readShootingFormats(payload.shootingFormats),
+    commercialIntent,
   };
 }
 
@@ -185,6 +187,38 @@ function readOptionalString(record, key) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function readCommercialIntent(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const intent = {
+    stage: readStringValue(value.stage),
+    targetAudience: readStringValue(value.targetAudience),
+    audiencePain: readStringValue(value.audiencePain),
+    businessHypothesis: readStringValue(value.businessHypothesis),
+    cta: readStringValue(value.cta),
+    relatedOffer: readStringValue(value.relatedOffer),
+  };
+  return Object.values(intent).some(Boolean) ? intent : null;
+}
+
+function readStringValue(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function appendCommercialIntentNote(notes, intent) {
+  const text = String(notes || "").trim();
+  if (!intent || text.includes("商业意图:")) return text || undefined;
+  const block = [
+    "商业意图:",
+    intent.stage ? `- 阶段: ${intent.stage}` : "",
+    intent.targetAudience ? `- 目标人群: ${intent.targetAudience}` : "",
+    intent.audiencePain ? `- 痛点: ${intent.audiencePain}` : "",
+    intent.businessHypothesis ? `- 假设: ${intent.businessHypothesis}` : "",
+    intent.cta ? `- CTA: ${intent.cta}` : "",
+    intent.relatedOffer ? `- 关联产品/服务: ${intent.relatedOffer}` : "",
+  ].filter(Boolean).join("\n");
+  return [text, block].filter(Boolean).join("\n\n");
+}
+
 function readShootingFormats(value) {
   if (value === undefined) return ["talking"];
   if (!Array.isArray(value)) throw new Error("shootingFormats must be an array");
@@ -199,10 +233,18 @@ function readShootingFormats(value) {
 
 async function readJson(filePath, fallback) {
   try {
-    return JSON.parse(await readFile(filePath, "utf8"));
+    return parseJsonText(await readFile(filePath, "utf8"));
   } catch {
     return fallback;
   }
+}
+
+function parseJsonText(text) {
+  return JSON.parse(stripBom(text));
+}
+
+function stripBom(text) {
+  return String(text || "").replace(/^\uFEFF/, "");
 }
 
 async function writeJson(filePath, value) {
