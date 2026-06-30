@@ -140,7 +140,7 @@ export interface ContentFlowImportPayload {
 }
 
 export interface ContentFlowStateSnapshot {
-  schemaVersion: '1.0'
+  schemaVersion: '1.0' | '1.1'
   source: 'content-flow-h'
   generatedAt: string
   summary: {
@@ -148,6 +148,9 @@ export interface ContentFlowStateSnapshot {
     scriptingCount: number
     editingCount: number
     publishedLast7Days: number
+    activeVideoCount?: number
+    pendingCoverCount?: number
+    platformStatusCounts?: Record<string, number>
   }
   activeVideos: Array<{
     id: string
@@ -155,9 +158,25 @@ export interface ContentFlowStateSnapshot {
     status: VideoStatus
     topicId?: string
     scriptId?: string
+    importMarker?: string
+    importDate?: string
     nextAction: string
     shootingFormats: ShootingFormat[]
     platforms: Platform[]
+    platformStatuses?: Array<{
+      platform: Platform
+      status: PlatformPublishStatus
+      publishedAt?: string
+      url?: string
+      skipReason?: string
+      violationReason?: string
+    }>
+    thumbnailNote?: string
+    hasCoverPortrait?: boolean
+    hasCoverLandscape?: boolean
+    notesSummary?: string
+    statusHistory?: StatusHistoryEntry[]
+    createdAt?: string
     updatedAt: string
   }>
   stuckItems: Array<{
@@ -172,6 +191,23 @@ export interface ContentFlowStateSnapshot {
     title: string
     publishedAt?: string
     platforms: Platform[]
+    updatedAt: string
+  }>
+  recentlyClosed?: Array<{
+    id: string
+    title: string
+    status: VideoStatus
+    importMarker?: string
+    importDate?: string
+    platforms: Platform[]
+    platformStatuses?: Array<{
+      platform: Platform
+      status: PlatformPublishStatus
+      publishedAt?: string
+      url?: string
+      skipReason?: string
+      violationReason?: string
+    }>
     updatedAt: string
   }>
 }

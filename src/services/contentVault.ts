@@ -36,33 +36,26 @@ export function parseContentFlowImport(input: unknown): ContentFlowImportPayload
 export function buildContentFlowSnapshot(data: AppData): ContentFlowStateSnapshot {
   const generatedAt = new Date().toISOString()
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
   const activeVideos = data.videos
     .filter(video => activeStatuses.has(video.status))
-    .map(video => ({
-      id: video.id,
-      title: video.title,
-      status: video.status,
-      topicId: video.topicId,
-      scriptId: video.scriptId,
-      nextAction: nextActionForStatus(video.status),
-      shootingFormats: video.shootingFormats ?? [],
-      platforms: uniquePlatforms(video),
-      updatedAt: video.updatedAt,
-    }))
+    .map(toVideoEvidence)
 
   const recentlyPublished = data.videos
     .filter(video => video.status === 'published')
     .filter(video => Date.parse(video.updatedAt) >= sevenDaysAgo)
     .map(video => ({
-      id: video.id,
-      title: video.title,
+      ...toVideoEvidence(video),
       publishedAt: latestPublishedAt(video),
-      platforms: uniquePlatforms(video),
-      updatedAt: video.updatedAt,
     }))
+  const recentlyClosed = data.videos
+    .filter(video => video.status === 'published' || video.status === 'archived')
+    .filter(video => Date.parse(video.updatedAt) >= fourteenDaysAgo)
+    .map(toVideoEvidence)
+  const platformStatusCounts = countPlatformStatuses(data.videos)
 
   return {
-    schemaVersion: '1.0',
+    schemaVersion: '1.1',
     source: 'content-flow-h',
     generatedAt,
     summary: {
@@ -70,11 +63,75 @@ export function buildContentFlowSnapshot(data: AppData): ContentFlowStateSnapsho
       scriptingCount: data.videos.filter(video => video.status === 'scripting' || video.status === 'review').length,
       editingCount: data.videos.filter(video => video.status === 'editing').length,
       publishedLast7Days: recentlyPublished.length,
+      activeVideoCount: activeVideos.length,
+      pendingCoverCount: activeVideos.filter(video => !video.hasCoverPortrait && !video.hasCoverLandscape).length,
+      platformStatusCounts,
     },
     activeVideos,
     stuckItems: activeVideos.filter(video => video.status === 'topic' || video.status === 'scripting'),
     recentlyPublished,
+    recentlyClosed,
   }
+}
+
+function toVideoEvidence(video: Video) {
+  return {
+    id: video.id,
+    title: video.title,
+    status: video.status,
+    topicId: video.topicId,
+    scriptId: video.scriptId,
+    importMarker: extractImportMarker(video.notes),
+    importDate: extractImportDate(video.notes),
+    nextAction: nextActionForStatus(video.status),
+    shootingFormats: video.shootingFormats ?? [],
+    platforms: uniquePlatforms(video),
+    platformStatuses: video.platforms.map(item => ({
+      platform: item.platform,
+      status: item.status ?? 'published',
+      publishedAt: item.publishedAt,
+      url: item.url,
+      skipReason: item.skipReason,
+      violationReason: item.violation?.reason,
+    })),
+    thumbnailNote: video.thumbnailNote ?? '',
+    hasCoverPortrait: Boolean(video.coverPortrait),
+    hasCoverLandscape: Boolean(video.coverLandscape),
+    notesSummary: summarizeNotes(video.notes),
+    statusHistory: video.statusHistory.slice(-6),
+    createdAt: video.createdAt,
+    updatedAt: video.updatedAt,
+  }
+}
+
+function countPlatformStatuses(videos: Video[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const video of videos) {
+    for (const item of video.platforms) {
+      const key = `${item.platform}:${item.status ?? 'published'}`
+      counts[key] = (counts[key] ?? 0) + 1
+    }
+  }
+  return counts
+}
+
+function extractImportMarker(notes?: string): string {
+  return String(notes || '').match(/vault-import:[^\s]+/u)?.[0] ?? ''
+}
+
+function extractImportDate(notes?: string): string {
+  return String(notes || '').match(/vault-import:contentflow-import\/(\d{4}-\d{2}-\d{2})\.json/u)?.[1] ?? ''
+}
+
+function summarizeNotes(notes?: string): string {
+  return String(notes || '')
+    .split(/\n+/u)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(line => !line.startsWith('Source: vault-import:'))
+    .slice(0, 6)
+    .join('\n')
+    .slice(0, 800)
 }
 
 function readRecord(value: unknown): Record<string, unknown> {
