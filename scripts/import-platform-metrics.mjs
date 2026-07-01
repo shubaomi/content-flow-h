@@ -55,6 +55,7 @@ export async function importPlatformMetrics({ platform, inputPath, dataDir, dryR
   let metricsUpdated = 0;
   let videoPlatformUpdated = 0;
   let unmatchedCount = 0;
+  const unmatchedRows = [];
 
   for (const row of normalizedRows) {
     const rawRecord = toRawRecord(platform, row, now);
@@ -71,6 +72,9 @@ export async function importPlatformMetrics({ platform, inputPath, dataDir, dryR
     const video = matchVideo(nextVideos, row);
     if (!video) {
       unmatchedCount += 1;
+      if (unmatchedRows.length < 20) {
+        unmatchedRows.push(summarizeUnmatchedRow(platform, row));
+      }
       continue;
     }
 
@@ -110,9 +114,20 @@ export async function importPlatformMetrics({ platform, inputPath, dataDir, dryR
     metricsUpdated,
     videoPlatformUpdated,
     unmatchedCount,
+    unmatchedRows,
     rawOutputPath: path.join(dataDir, RAW_FILE_BY_PLATFORM[platform]),
     metricsOutputPath: path.join(dataDir, "metrics.json"),
     videosOutputPath: path.join(dataDir, "videos.json"),
+  };
+}
+
+function summarizeUnmatchedRow(platform, row) {
+  return {
+    platform,
+    title: cleanTitle(row.title || row.description),
+    publishedAt: normalizeDate(row.publishedAt),
+    platformVideoId: row.platformVideoId || "",
+    plays: Number(row.plays || row.views || 0),
   };
 }
 

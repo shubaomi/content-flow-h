@@ -30,6 +30,7 @@ try {
   await writeFile(csvPath, [
     "作品名称,发布时间,体裁,审核状态,播放量,完播率,5s完播率,封面点击率,2s跳出率,平均播放时长,点赞,分享,评论,收藏,粉丝增量",
     "AI窗口别开太多,2026-06-30 09:30:00,视频,公开,1200,12.5%,35%,4.2%,41%,18秒,60,8,5,22,3",
+    "找不到的官方导出标题,2026-06-30 10:30:00,视频,公开,88,7%,20%,3.0%,50%,9秒,3,1,0,2,0",
   ].join("\n"), "utf8");
 
   const result = await importPlatformMetrics({
@@ -39,11 +40,14 @@ try {
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.importedRows, 1);
-  assert.equal(result.rawCreated, 1);
+  assert.equal(result.importedRows, 2);
+  assert.equal(result.rawCreated, 2);
   assert.equal(result.metricsCreated, 1);
   assert.equal(result.videoPlatformUpdated, 1);
-  assert.equal(result.unmatchedCount, 0);
+  assert.equal(result.unmatchedCount, 1);
+  assert.equal(result.unmatchedRows[0].title, "找不到的官方导出标题");
+  assert.equal(result.unmatchedRows[0].platform, "douyin");
+  assert.equal(result.unmatchedRows[0].plays, 88);
 
   const [records, metrics, videos] = await Promise.all([
     readJson("douyinRecords.json"),
@@ -51,7 +55,7 @@ try {
     readJson("videos.json"),
   ]);
 
-  assert.equal(records.length, 1);
+  assert.equal(records.length, 2);
   assert.equal(records[0].completionRate, 0.125);
   assert.equal(metrics.length, 1);
   assert.equal(metrics[0].videoId, "vid_001");
