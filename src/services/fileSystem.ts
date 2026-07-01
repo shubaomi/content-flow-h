@@ -1,23 +1,5 @@
-import type { AppData, DouyinRawRecord, ShipinhaoRawRecord, Script, Video } from '@/types'
+import type { AppData, Script, Video } from '@/types'
 import { defaultAppData } from './defaultData'
-import { nanoid } from 'nanoid'
-
-const DOUYIN_SEED: Omit<DouyinRawRecord, 'id' | 'createdAt'>[] = [
-  { title: '每天花一小时玩AI，比你报千元课都管用', publishedAt: '2026-05-18 18:49:34', genre: '1-3min视频', status: '公开', plays: 1500, completionRate: 0.031092, fiveSecRate: 0.416063, coverCtr: '-', twoSecBounceRate: 0.347597, avgPlayDuration: 13.551408, likes: 34, shares: 1, comments: 1, saves: 5, profileVisits: 4, followerGain: 4 },
-  { title: '我做了个可视化skill工具可以一键安装、同步skill', publishedAt: '2026-05-16 17:33:33', genre: '1-3min视频', status: '公开', plays: 3387, completionRate: 0.034909, fiveSecRate: 0.350379, coverCtr: '-', twoSecBounceRate: 0.356872, avgPlayDuration: 16.264848, likes: 54, shares: 7, comments: 6, saves: 51, profileVisits: 52, followerGain: 3 },
-  { title: 'AI做的3D可交互的细胞结构模型，效果太炸裂！', publishedAt: '2026-05-15 18:59:28', genre: '1min-视频', status: '公开', plays: 2342, completionRate: 0.043687, fiveSecRate: 0.345805, coverCtr: '-', twoSecBounceRate: 0.404490, avgPlayDuration: 8.903808, likes: 52, shares: 1, comments: 1, saves: 54, profileVisits: 23, followerGain: 4 },
-  { title: 'Claude Code 新手必学的三个命令', publishedAt: '2026-05-14 23:18:00', genre: '1-3min视频', status: '公开', plays: 18573, completionRate: 0.043936, fiveSecRate: 0.343382, coverCtr: '-', twoSecBounceRate: 0.385556, avgPlayDuration: 13.689828, likes: 430, shares: 47, comments: 12, saves: 399, profileVisits: 117, followerGain: 38 },
-]
-
-const SHIPINHAO_SEED: Omit<ShipinhaoRawRecord, 'id' | 'createdAt'>[] = [
-  { description: '学AI最快的路径，不是看教程，而是Learning by Playing。', videoId: 'export/UzFfBgAAxJCDaEA3BjLrjMzT4DCa4hcv0-bdtO-54xQoW6Io6w', publishedAt: '2026/05/18', completionRate: 0.0808, avgPlayDuration: '24.67秒', plays: 805, recommendations: 1, likes: 4, comments: 1, shares: 4, follows: 3, forwardChat: 4, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-  { description: '学vibecoding前必须了解git是什么！', videoId: 'export/UzFfBgAAxLWDeHwbNTHpjMzT4DCaZ86KiaJIGgORiQDOikaPaQ', publishedAt: '2026/05/17', completionRate: 0.0192, avgPlayDuration: '24.88秒', plays: 9578, recommendations: 27, likes: 143, comments: 2, shares: 291, follows: 303, forwardChat: 291, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-  { description: 'skill不会装？换个agent要重装？我做了一个开源工具一键解决', videoId: 'export/UzFfBgAAxIyDLBUhGl7pjMzT4DCaPLBhs5_c6gHw5tkiqhS6Gg', publishedAt: '2026/05/16', completionRate: 0.0784, avgPlayDuration: '19.49秒', plays: 1071, recommendations: 4, likes: 11, comments: 2, shares: 25, follows: 2, forwardChat: 25, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-  { description: '分享Dilum Sanjaya用AI做的可3D交互的细胞结构模型', videoId: 'export/UzFfBgAAxLeDRAcEHjLvjMzT4DCa-mTpRD8l7v9mvM8DX6GU2g', publishedAt: '2026/05/15', completionRate: 0.0722, avgPlayDuration: '16.39秒', plays: 720, recommendations: 1, likes: 7, comments: 1, shares: 15, follows: 2, forwardChat: 15, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-  { description: 'Claude Code 新手必学的3个命令。', videoId: 'export/UzFfBgAAxJKDdH1UGB_sjMzT4DCaaBLRZiN8puwdosHmgUpDnA', publishedAt: '2026/05/14', completionRate: 0.1272, avgPlayDuration: '28.04秒', plays: 5426, recommendations: 13, likes: 48, comments: 3, shares: 163, follows: 20, forwardChat: 163, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-  { description: 'Mac上必装的5个App，vibe coding效率翻倍！', videoId: 'export/UzFfBgAAxOmDdEktLUXtjMzT4DCanq7GekUztn2pRHAzvs_hxw', publishedAt: '2026/05/13', completionRate: 0.1164, avgPlayDuration: '27.94秒', plays: 1752, recommendations: 2, likes: 20, comments: 5, shares: 32, follows: 1, forwardChat: 32, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-  { description: '2步做出你的第一个skill,0基础AI小白教程。', videoId: 'export/UzFfBgAAxICDGAQSclvijMzT4DCa5O6p0lO2_w2vKF8pbpN_9Q', publishedAt: '2026/05/12', completionRate: 0.0478, avgPlayDuration: '15.97秒', plays: 5780, recommendations: 7, likes: 33, comments: 5, shares: 147, follows: 26, forwardChat: 147, setRingtone: 0, setStatus: 0, setMomentCover: 0 },
-]
 
 const IDB_DB = 'ip_content'
 const IDB_STORE = 'handles'
@@ -335,15 +317,14 @@ export async function readAppData(): Promise<AppData> {
       }
     }
   }
-  // One-time migration: add platform raw records (seed with exported data)
+  // One-time migration: create empty platform raw record files.
+  // Real platform data should come from official backend exports, not bundled samples.
   if (!data.douyinRecords) {
-    const now2 = new Date().toISOString()
-    data.douyinRecords = DOUYIN_SEED.map(r => ({ ...r, id: nanoid(), createdAt: now2 }))
+    data.douyinRecords = []
     changed = true
   }
   if (!data.shipinhaoRecords) {
-    const now2 = new Date().toISOString()
-    data.shipinhaoRecords = SHIPINHAO_SEED.map(r => ({ ...r, id: nanoid(), createdAt: now2 }))
+    data.shipinhaoRecords = []
     changed = true
   }
   if (!data.xiaohongshuRecords) {
