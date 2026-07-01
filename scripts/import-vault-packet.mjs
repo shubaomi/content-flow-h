@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const VALID_SHOOTING_FORMATS = new Set(["landscape", "portrait", "talking", "demo", "talking_demo"]);
+const IMPORT_RESETTABLE_STATUSES = new Set(["topic", "scripting", "review"]);
 
 const args = parseArgs(process.argv.slice(2));
 const date = args.date || todayId();
@@ -106,7 +107,7 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
   }
 
   const wordCount = payload.scriptMarkdown.replace(/\s+/g, "").length;
-  const nextStatus = video.status === "published" || video.status === "archived" ? video.status : "review";
+  const nextStatus = isNewVideo || IMPORT_RESETTABLE_STATUSES.has(video.status) ? "review" : video.status || "review";
   const statusChanged = video.status !== nextStatus;
 
   topic.title = payload.topicTitle;

@@ -16,7 +16,8 @@
     "docker:clean": "docker compose down -v",
     "vault:import-packet": "node scripts/import-vault-packet.mjs",
     "platform:import": "node scripts/import-platform-metrics.mjs",
-    "test:platform-import": "node scripts/test-import-platform-metrics.mjs"
+    "test:platform-import": "node scripts/test-import-platform-metrics.mjs",
+    "test:vault-import": "node scripts/test-import-vault-packet.mjs"
   },
   "dependencies": {
     "@codemirror/basic-setup": "^0.20.0",
