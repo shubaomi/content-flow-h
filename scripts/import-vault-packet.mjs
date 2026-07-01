@@ -23,8 +23,10 @@ const inputPath = args.input
 const importRelativePath = args.input
   ? path.relative(vaultDir || process.cwd(), inputPath).replaceAll(path.sep, "/")
   : `contentflow-import/${date}.json`;
-const payload = parseContentFlowImport(parseJsonText(await readFile(inputPath, "utf8")));
-const result = await importPacket({ dataDir, payload, importRelativePath });
+const inputText = await readFile(inputPath, "utf8");
+const sourceHash = sha256(stripBom(inputText));
+const payload = parseContentFlowImport(parseJsonText(inputText));
+const result = await importPacket({ dataDir, payload, importRelativePath, sourceHash });
 
 console.log(JSON.stringify({
   ok: true,
@@ -34,7 +36,7 @@ console.log(JSON.stringify({
   ...result,
 }, null, 2));
 
-async function importPacket({ dataDir, payload, importRelativePath }) {
+async function importPacket({ dataDir, payload, importRelativePath, sourceHash }) {
   const timestamp = new Date().toISOString();
   const importMarker = `vault-import:${importRelativePath}`;
   const topicsPath = path.join(dataDir, "topics.json");
@@ -60,7 +62,7 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
       platforms: [],
       thumbnailNote: payload.thumbnailNote,
       description: payload.videoDescription,
-      notes: appendImportMarker(payload.notes, importMarker),
+      notes: appendImportMarker(payload.notes, importMarker, sourceHash),
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -78,7 +80,7 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
       description: payload.videoDescription,
       status: "in_progress",
       tagIds: [],
-      inspiration: appendImportMarker(payload.notes, importMarker),
+      inspiration: appendImportMarker(payload.notes, importMarker, sourceHash),
       linkedVideoId: video.id,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -113,7 +115,7 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
   topic.title = payload.topicTitle;
   topic.description = payload.videoDescription;
   topic.status = topic.status === "done" ? topic.status : "in_progress";
-  topic.inspiration = appendImportMarker(payload.notes, importMarker);
+  topic.inspiration = appendImportMarker(payload.notes, importMarker, sourceHash);
   topic.linkedVideoId = video.id;
   topic.updatedAt = timestamp;
 
@@ -124,7 +126,7 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
   video.shootingFormats = payload.shootingFormats;
   video.thumbnailNote = payload.thumbnailNote;
   video.description = payload.videoDescription;
-  video.notes = appendImportMarker(payload.notes, importMarker);
+  video.notes = appendImportMarker(payload.notes, importMarker, sourceHash);
   video.updatedAt = timestamp;
   if (statusChanged) {
     video.statusHistory = [...(video.statusHistory || []), { status: nextStatus, changedAt: timestamp }];
@@ -149,6 +151,7 @@ async function importPacket({ dataDir, payload, importRelativePath }) {
     videoId: video.id,
     scriptId: script.id,
     marker: importMarker,
+    sourceHash,
   };
 }
 
@@ -253,10 +256,20 @@ async function writeJson(filePath, value) {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-function appendImportMarker(notes, marker) {
+function appendImportMarker(notes, marker, sourceHash) {
   const text = String(notes || "").trim();
-  if (text.includes(marker)) return text;
-  return [text, `Source: ${marker}`].filter(Boolean).join("\n\n");
+  const lines = text
+    .split(/\r?\n/u)
+    .filter((line) => !line.startsWith("Source: vault-import:") && !line.startsWith("Source-Hash: sha256:"));
+  return [
+    lines.join("\n").trim(),
+    `Source: ${marker}`,
+    sourceHash ? `Source-Hash: sha256:${sourceHash}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+function sha256(value) {
+  return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
 function normalizeTitle(value) {

@@ -24,6 +24,7 @@ try {
 
   const first = await runImport();
   assert.equal(first.imported, "created");
+  assert.match(first.sourceHash, /^[a-f0-9]{64}$/u);
 
   const videos = await readJson("videos.json");
   videos[0].status = "filming";
@@ -42,6 +43,8 @@ try {
 
   const second = await runImport();
   assert.equal(second.imported, "updated");
+  assert.match(second.sourceHash, /^[a-f0-9]{64}$/u);
+  assert.notEqual(second.sourceHash, first.sourceHash);
 
   const [updatedVideos, scripts] = await Promise.all([
     readJson("videos.json"),
@@ -53,6 +56,8 @@ try {
   assert.equal(updatedVideos[0].status, "filming");
   assert.equal(updatedVideos[0].description, "修复后的简介");
   assert.equal(updatedVideos[0].statusHistory.filter((item) => item.status === "review").length, 1);
+  assert.ok(updatedVideos[0].notes.includes(`Source: ${second.marker}`));
+  assert.ok(updatedVideos[0].notes.includes(`Source-Hash: sha256:${second.sourceHash}`));
   assert.equal(scriptMarkdown, "修复后的口播稿");
 
   console.log(JSON.stringify({
