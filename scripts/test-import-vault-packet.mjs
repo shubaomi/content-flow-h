@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -14,7 +15,7 @@ const reviewPath = path.join(reviewDir, "2026-07-01.json");
 const scriptPath = path.resolve("scripts/import-vault-packet.mjs");
 
 try {
-  await writeImport({
+  const firstImportText = await writeImport({
     topicTitle: "AI窗口别开太多",
     videoTitle: "AI窗口别开太多",
     videoDescription: "第一版简介",
@@ -22,7 +23,7 @@ try {
     thumbnailNote: "第一版封面",
     notes: "第一版备注",
     shootingFormats: ["talking"],
-  });
+  }, { crlf: true });
   await writeReview({
     status: "needs-manual-review",
     score: 0.42,
@@ -37,6 +38,7 @@ try {
   const first = await runImport();
   assert.equal(first.imported, "created");
   assert.match(first.sourceHash, /^[a-f0-9]{64}$/u);
+  assert.equal(first.sourceHash, sha256(normalizeHashInput(firstImportText)));
 
   const videos = await readJson("videos.json");
   videos[0].status = "filming";
@@ -112,9 +114,11 @@ async function runImport() {
   return JSON.parse(stdout);
 }
 
-async function writeImport(payload) {
+async function writeImport(payload, options = {}) {
   await mkdir(inputDir, { recursive: true });
-  await writeFile(inputPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  const text = `${JSON.stringify(payload, null, 2)}\n`;
+  await writeFile(inputPath, options.crlf ? text.replace(/\n/g, "\r\n") : text, "utf8");
+  return text;
 }
 
 async function writeReview(payload) {
@@ -128,4 +132,12 @@ async function readJson(name) {
 
 async function writeDataJson(name, value) {
   await writeFile(path.join(tempDir, name), `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function sha256(value) {
+  return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+function normalizeHashInput(value) {
+  return String(value || "").replace(/^\uFEFF/u, "").replace(/\r\n/g, "\n");
 }

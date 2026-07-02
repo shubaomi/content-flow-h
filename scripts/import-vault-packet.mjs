@@ -24,7 +24,7 @@ const importRelativePath = args.input
   ? path.relative(vaultDir || process.cwd(), inputPath).replaceAll(path.sep, "/")
   : `contentflow-import/${date}.json`;
 const inputText = await readFile(inputPath, "utf8");
-const sourceHash = sha256(stripBom(inputText));
+const sourceHash = sha256(normalizeHashInput(inputText));
 const inputJson = parseJsonText(inputText);
 if (isDiscardedImport(inputJson)) {
   console.log(JSON.stringify({
@@ -319,6 +319,10 @@ function appendImportMarker(notes, marker, sourceHash) {
 
 function sha256(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+function normalizeHashInput(value) {
+  return stripBom(value).replace(/\r\n/g, "\n");
 }
 
 function normalizeTitle(value) {
