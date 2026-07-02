@@ -9,6 +9,7 @@ import { PlatformIcon } from '@/components/PlatformIcon'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { EditorialReviewPanel } from '@/components/EditorialReviewPanel'
 import type { Platform } from '@/types'
 import {
   VIDEO_STATUS_LABELS, VIDEO_STATUS_ORDER, ALL_PLATFORMS, PLATFORM_LABELS,
@@ -17,6 +18,7 @@ import {
 } from '@/types'
 import { formatDate, fromNow } from '@/utils/date'
 import { calcEngagement, formatNumber } from '@/utils/format'
+import { parseEditorialReviewNote } from '@/services/editorialReviewNote'
 
 export function VideoDetail() {
   const { id } = useParams<{ id: string }>()
@@ -172,6 +174,7 @@ export function VideoDetail() {
   const currentIdx = VIDEO_STATUS_ORDER.indexOf(video.status)
   const nextStatus = currentIdx < VIDEO_STATUS_ORDER.length - 2 ? VIDEO_STATUS_ORDER[currentIdx + 1] : null
   const prevStatus = currentIdx > 0 ? VIDEO_STATUS_ORDER[currentIdx - 1] : null
+  const editorialReview = parseEditorialReviewNote(video.notes)
   const relatedRelations = videoRelations.filter(
     r => r.fromVideoId === video.id || r.toVideoId === video.id,
   )
@@ -626,6 +629,8 @@ export function VideoDetail() {
                 })}
               </div>
             </div>
+
+            <EditorialReviewPanel review={editorialReview} />
 
             <div>
               <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.07em' }}>备注</p>

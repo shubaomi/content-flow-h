@@ -8,6 +8,8 @@ import { useAppStore } from '@/store/appStore'
 import { StatusBadge } from '@/components/StatusBadge'
 import { PlatformIcon } from '@/components/PlatformIcon'
 import { fromNow } from '@/utils/date'
+import { parseEditorialReviewNote } from '@/services/editorialReviewNote'
+import { EditorialReviewPanel } from '@/components/EditorialReviewPanel'
 
 interface Props { video: Video | null; onClose: () => void }
 
@@ -50,6 +52,7 @@ export function VideoSlideOver({ video, onClose }: Props) {
     })
     .filter(item => item !== null)
     .slice(0, 2)
+  const editorialReview = parseEditorialReviewNote(video.notes)
 
   return (
     <>
@@ -125,6 +128,8 @@ export function VideoSlideOver({ video, onClose }: Props) {
           )}
 
           <Divider />
+
+          <EditorialReviewPanel review={editorialReview} compact />
 
           {video.platforms.length > 0 && (
             <div style={{ marginBottom: 16 }}>

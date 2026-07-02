@@ -8,7 +8,9 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "contentflow-vault-import-"));
 const inputDir = path.join(tempDir, "contentflow-import");
+const reviewDir = path.join(tempDir, "packet-reviews");
 const inputPath = path.join(inputDir, "2026-07-01.json");
+const reviewPath = path.join(reviewDir, "2026-07-01.json");
 const scriptPath = path.resolve("scripts/import-vault-packet.mjs");
 
 try {
@@ -20,6 +22,16 @@ try {
     thumbnailNote: "第一版封面",
     notes: "第一版备注",
     shootingFormats: ["talking"],
+  });
+  await writeReview({
+    status: "needs-manual-review",
+    score: 0.42,
+    minScore: 0.85,
+    focusCluster: { label: "AI 多窗口认知负荷" },
+    issues: [
+      { severity: "error", message: "正文漂移，需要重写。" },
+      { severity: "warning", message: "hook 兑现不够快。" },
+    ],
   });
 
   const first = await runImport();
@@ -58,12 +70,26 @@ try {
   assert.equal(updatedVideos[0].statusHistory.filter((item) => item.status === "review").length, 1);
   assert.ok(updatedVideos[0].notes.includes(`Source: ${second.marker}`));
   assert.ok(updatedVideos[0].notes.includes(`Source-Hash: sha256:${second.sourceHash}`));
+  assert.ok(updatedVideos[0].notes.includes("人工审稿参考:"));
+  assert.ok(updatedVideos[0].notes.includes("[error] 正文漂移，需要重写。"));
   assert.equal(scriptMarkdown, "修复后的口播稿");
+
+  await writeImport({
+    lifecycle: { status: "discarded" },
+    topicTitle: "废弃选题",
+    videoTitle: "废弃选题",
+    scriptMarkdown: "不应该导入",
+    shootingFormats: ["talking"],
+  });
+  const discarded = await runImport();
+  assert.equal(discarded.skipped, true);
+  assert.equal(discarded.reason, "packet-discarded");
 
   console.log(JSON.stringify({
     ok: true,
     first,
     second,
+    discarded,
     statusAfterReimport: updatedVideos[0].status,
   }, null, 2));
 } finally {
@@ -89,6 +115,11 @@ async function runImport() {
 async function writeImport(payload) {
   await mkdir(inputDir, { recursive: true });
   await writeFile(inputPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+async function writeReview(payload) {
+  await mkdir(reviewDir, { recursive: true });
+  await writeFile(reviewPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
 async function readJson(name) {

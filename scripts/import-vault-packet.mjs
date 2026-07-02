@@ -25,7 +25,21 @@ const importRelativePath = args.input
   : `contentflow-import/${date}.json`;
 const inputText = await readFile(inputPath, "utf8");
 const sourceHash = sha256(stripBom(inputText));
-const payload = parseContentFlowImport(parseJsonText(inputText));
+const inputJson = parseJsonText(inputText);
+if (isDiscardedImport(inputJson)) {
+  console.log(JSON.stringify({
+    ok: true,
+    date,
+    inputPath,
+    dataDir,
+    skipped: true,
+    reason: "packet-discarded",
+  }, null, 2));
+  process.exit(0);
+}
+const payload = parseContentFlowImport(inputJson);
+const packetReview = vaultDir ? await readJson(path.join(vaultDir, "packet-reviews", `${date}.json`), null) : null;
+payload.notes = appendPacketReviewNote(payload.notes, packetReview);
 const result = await importPacket({ dataDir, payload, importRelativePath, sourceHash });
 
 console.log(JSON.stringify({
@@ -171,6 +185,17 @@ function parseContentFlowImport(input) {
   };
 }
 
+function isDiscardedImport(input) {
+  const source = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const payload = source.contentFlowImport && typeof source.contentFlowImport === "object" && !Array.isArray(source.contentFlowImport)
+    ? source.contentFlowImport
+    : {};
+  return source.lifecycle?.status === "discarded"
+    || source.archive?.status === "discarded"
+    || payload.lifecycle?.status === "discarded"
+    || payload.archive?.status === "discarded";
+}
+
 function readRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Import content must be a JSON object");
@@ -221,6 +246,30 @@ function appendCommercialIntentNote(notes, intent) {
     intent.relatedOffer ? `- 关联产品/服务: ${intent.relatedOffer}` : "",
   ].filter(Boolean).join("\n");
   return [text, block].filter(Boolean).join("\n\n");
+}
+
+function appendPacketReviewNote(notes, review) {
+  const text = String(notes || "").trim();
+  if (!review || typeof review !== "object" || Array.isArray(review) || text.includes("人工审稿参考:")) {
+    return text || undefined;
+  }
+
+  const issues = Array.isArray(review.issues) ? review.issues : [];
+  const block = [
+    "人工审稿参考:",
+    review.status ? `- 状态: ${review.status}` : "",
+    Number.isFinite(Number(review.score)) ? `- 分数: ${review.score}${Number.isFinite(Number(review.minScore)) ? ` / 最低 ${review.minScore}` : ""}` : "",
+    review.focusCluster?.label ? `- 主题簇: ${review.focusCluster.label}` : "",
+    review.summary ? `- 结论: ${review.summary}` : "",
+    issues.length > 0 ? "- 问题线索:" : "",
+    ...issues.slice(0, 8).map((issue) => {
+      const severity = issue?.severity || "info";
+      const message = issue?.message || issue?.code || "";
+      return message ? `- [${severity}] ${message}` : "";
+    }),
+  ].filter(Boolean).join("\n");
+
+  return [text, block].filter(Boolean).join("\n\n") || undefined;
 }
 
 function readShootingFormats(value) {
